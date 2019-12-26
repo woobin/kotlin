@@ -58,8 +58,16 @@ public final class JvmAbi {
      */
     public static final int LOCAL_VARIABLE_INLINE_ARGUMENT_SYNTHETIC_LINE_NUMBER = 65100;
 
+    /*
+        Line number is generated before the return instructions in suspend state machines.
+        It helps the debugger to provide step-over experience through suspend functions by placing a synthetic
+        breakpoint upon suspension.
+     */
+    public static final int COROUTINE_BEFORE_SUSPEND_SYNTHETIC_LINE_NUMBER = 65101;
+
     public static final List<Integer> SYNTHETIC_MARKER_LINE_NUMBERS = CollectionsKt.listOf(
-            LOCAL_VARIABLE_INLINE_ARGUMENT_SYNTHETIC_LINE_NUMBER
+            LOCAL_VARIABLE_INLINE_ARGUMENT_SYNTHETIC_LINE_NUMBER,
+            COROUTINE_BEFORE_SUSPEND_SYNTHETIC_LINE_NUMBER
     );
 
     public static final String LOCAL_VARIABLE_NAME_PREFIX_INLINE_ARGUMENT = "$i$a$";
