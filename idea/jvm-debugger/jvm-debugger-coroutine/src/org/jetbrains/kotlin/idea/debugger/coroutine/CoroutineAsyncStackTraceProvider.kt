@@ -28,7 +28,7 @@ class CoroutineAsyncStackTraceProvider : AsyncStackTraceProvider {
     fun getAsyncStackTraceSafe(frameProxy: StackFrameProxyImpl, suspendContext: XSuspendContext): List<CoroutineStackFrameItem> {
         val defaultResult = emptyList<CoroutineStackFrameItem>()
 
-        val location = frameProxy.location()
+        val location = frameProxy.safeLocation() ?: return defaultResult
         if (!location.isInKotlinSources())
             return defaultResult
 

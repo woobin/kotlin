@@ -14,6 +14,7 @@ import com.sun.jdi.request.StepRequest
 import org.jetbrains.kotlin.idea.debugger.KotlinPositionManager
 import org.jetbrains.kotlin.idea.debugger.isOnSuspendReturnOrReenter
 import org.jetbrains.kotlin.idea.debugger.isOneLineMethod
+import org.jetbrains.kotlin.idea.debugger.safeLocation
 import org.jetbrains.kotlin.idea.util.application.runReadAction
 
 class KotlinExtraSteppingFilter : ExtraSteppingFilter {
@@ -24,7 +25,7 @@ class KotlinExtraSteppingFilter : ExtraSteppingFilter {
 
         val debugProcess = context.debugProcess ?: return false
         val positionManager = KotlinPositionManager(debugProcess)
-        val location = context.frameProxy?.location() ?: return false
+        val location = context.frameProxy?.safeLocation() ?: return false
         return runReadAction {
             shouldFilter(positionManager, location)
         }
