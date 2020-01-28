@@ -70,6 +70,7 @@ private val defaultHandlerActions = object : MoveKotlinDeclarationsHandlerAction
         searchInComments: Boolean,
         searchForTextOccurrences: Boolean,
         deleteEmptySourceFiles: Boolean,
+        moveMppDeclarations: Boolean,
         moveCallback: MoveCallback?
     ) = MoveKotlinTopLevelDeclarationsDialog(
         project,
@@ -81,6 +82,7 @@ private val defaultHandlerActions = object : MoveKotlinDeclarationsHandlerAction
         searchInComments,
         searchForTextOccurrences,
         deleteEmptySourceFiles,
+        moveMppDeclarations,
         moveCallback
     ).show()
 
@@ -125,19 +127,6 @@ class MoveKotlinDeclarationsHandler internal constructor(private val handlerActi
         project: Project, elements: Array<out PsiElement>, targetContainer: PsiElement?, callback: MoveCallback?, editor: Editor?
     ): Boolean {
         if (!CommonRefactoringUtil.checkReadOnlyStatusRecursively(project, elements.toList(), true)) return false
-
-        if (!ApplicationManager.getApplication().isUnitTestMode &&
-            elements.any { it is KtDeclaration && (it.isExpectDeclaration() || it.isEffectivelyActual()) }
-        ) {
-            val proceedWithIncompleteRefactoring = Messages.showYesNoDialog(
-                project,
-                "This refactoring will move selected declaration without it's expect/actual counterparts that may lead to compilation errors.\n" +
-                        "Do you wish to proceed?",
-                "MPP declarations does not supported by this refactoring.",
-                Messages.getWarningIcon()
-            )
-            if (proceedWithIncompleteRefactoring != Messages.YES) return true
-        }
 
         val container = getUniqueContainer(elements)
         if (container == null) {
@@ -201,6 +190,7 @@ class MoveKotlinDeclarationsHandler internal constructor(private val handlerActi
                 val searchInComments = KotlinRefactoringSettings.instance.MOVE_SEARCH_IN_COMMENTS
                 val searchInText = KotlinRefactoringSettings.instance.MOVE_SEARCH_FOR_TEXT
                 val deleteEmptySourceFiles = KotlinRefactoringSettings.instance.MOVE_DELETE_EMPTY_SOURCE_FILES
+                val moveMppDeclarations = KotlinRefactoringSettings.instance.MOVE_MPP_DECLARATIONS
                 val targetFile = targetContainer as? KtFile
                 val moveToPackage = targetContainer !is KtFile
 
@@ -214,6 +204,7 @@ class MoveKotlinDeclarationsHandler internal constructor(private val handlerActi
                     searchInComments,
                     searchInText,
                     deleteEmptySourceFiles,
+                    moveMppDeclarations,
                     callback
                 )
             }
