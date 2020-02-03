@@ -461,7 +461,7 @@ public class FunctionCodegen {
     ) {
         OwnerKind contextKind = methodContext.getContextKind();
         if (!state.getClassBuilderMode().generateBodies
-            || isAbstractMethod(functionDescriptor, contextKind)
+            || isAbstractMethod(functionDescriptor, contextKind, state.getJvmDefaultMode())
             || shouldSkipMethodBodyInAbiMode(state.getClassBuilderMode(), origin)
         ) {
             generateLocalVariableTable(
@@ -746,7 +746,7 @@ public class FunctionCodegen {
             @NotNull JvmDefaultMode jvmDefaultMode
     ) {
         return OwnerKind.DEFAULT_IMPLS == context.getContextKind() &&
-               hasJvmDefaultAnnotation(functionDescriptor) &&
+               hasJvmDefaultAnnotation(functionDescriptor, jvmDefaultMode) &&
                jvmDefaultMode.isCompatibility();
     }
 
@@ -1014,7 +1014,7 @@ public class FunctionCodegen {
     public void generateBridges(@NotNull FunctionDescriptor descriptor) {
         if (descriptor instanceof ConstructorDescriptor) return;
         if (owner.getContextKind() == OwnerKind.DEFAULT_IMPLS) return;
-        if (JvmBridgesImplKt.isAbstractOnJvmIgnoringActualModality(descriptor)) return;
+        if (JvmBridgesImplKt.isAbstractOnJvmIgnoringActualModality(descriptor, state.getJvmDefaultMode())) return;
 
         // equals(Any?), hashCode(), toString() never need bridges
         if (isMethodOfAny(descriptor)) return;
@@ -1049,7 +1049,7 @@ public class FunctionCodegen {
                 }
             }
 
-            if (!descriptor.getKind().isReal() && isAbstractMethod(descriptor, OwnerKind.IMPLEMENTATION)) {
+            if (!descriptor.getKind().isReal() && isAbstractMethod(descriptor, OwnerKind.IMPLEMENTATION, state.getJvmDefaultMode())) {
                 CallableDescriptor overridden = SpecialBuiltinMembers.getOverriddenBuiltinReflectingJvmDescriptor(descriptor);
                 assert overridden != null;
 
@@ -1439,7 +1439,7 @@ public class FunctionCodegen {
             iv.invokespecial(parentInternalName, delegateTo.getName(), delegateTo.getDescriptor(), false);
         }
         else {
-            if (hasJvmDefaultAnnotation(descriptor)) {
+            if (hasJvmDefaultAnnotation(descriptor, state.getJvmDefaultMode())) {
                 iv.invokeinterface(v.getThisName(), delegateTo.getName(), delegateTo.getDescriptor());
             }
             else {
@@ -1629,7 +1629,7 @@ public class FunctionCodegen {
         assert isInterface(containingDeclaration) : "'processInterfaceMethod' method should be called only for interfaces, but: " +
                                                     containingDeclaration;
 
-        if (hasJvmDefaultAnnotation(memberDescriptor)) {
+        if (hasJvmDefaultAnnotation(memberDescriptor, mode)) {
             return (kind != OwnerKind.DEFAULT_IMPLS && !isSynthetic) ||
                    (kind == OwnerKind.DEFAULT_IMPLS && (isSynthetic || mode.isCompatibility()));
         } else {
