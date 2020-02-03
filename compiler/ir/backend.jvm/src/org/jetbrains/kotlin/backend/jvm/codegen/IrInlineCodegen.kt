@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.backend.jvm.codegen
 
-import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.codegen.*
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.lower.suspendFunctionViewOrStub
@@ -13,7 +12,6 @@ import org.jetbrains.kotlin.backend.jvm.ir.isInlineParameter
 import org.jetbrains.kotlin.backend.jvm.ir.isLambda
 import org.jetbrains.kotlin.codegen.inline.*
 import org.jetbrains.kotlin.codegen.state.GenerationState
-import org.jetbrains.kotlin.descriptors.CallableDescriptor
 import org.jetbrains.kotlin.descriptors.FunctionDescriptor
 import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor
 import org.jetbrains.kotlin.ir.declarations.*
@@ -45,12 +43,10 @@ class IrInlineCodegen(
     IrCallGenerator {
 
     override fun generateAssertFieldIfNeeded(info: RootInliningContext) {
-        if (info.generateAssertField && (sourceCompiler as IrSourceCompilerForInline).isPrimaryCopy) {
-            codegen.classCodegen.generateAssertFieldIfNeeded()?.run {
-                // Generating <clinit> right now, so no longer can insert the initializer into it.
-                // Instead, ask ExpressionCodegen to generate the code for it directly.
-                accept(codegen, BlockInfo()).discard()
-            }
+        if (info.generateAssertField) {
+            // May be inlining code into `<clinit>`, in which case it's too late to modify the IR and
+            // `generateAssertFieldIfNeeded` will return a statement for which we need to emit bytecode.
+            codegen.classCodegen.generateAssertFieldIfNeeded()?.accept(codegen, BlockInfo())?.discard()
         }
     }
 
@@ -146,38 +142,14 @@ class IrInlineCodegen(
         invocationParamBuilder.markValueParametersStart()
     }
 
-    private inner class IrInlineCall(
-        private val irFunctionAccessExpression: IrFunctionAccessExpression
-    ) : InlineCall {
-
-        override val calleeDescriptor: CallableDescriptor =
-            irFunctionAccessExpression.symbol.descriptor.original
-
-        override val callElement: PsiElement?
-            get() =
-                codegen.context.psiSourceManager.findPsiElement(irFunctionAccessExpression, function)
-                    ?: codegen.context.psiSourceManager.findPsiElement(function)
-
-        override val id: Any
-            get() = irFunctionAccessExpression
-
-        override fun toString(): String = irFunctionAccessExpression.render()
-    }
-
     override fun genCall(
         callableMethod: IrCallableMethod,
         codegen: ExpressionCodegen,
         expression: IrFunctionAccessExpression
     ) {
-        val inlineCall = IrInlineCall(expression)
-        if (!state.globalInlineContext.enterIntoInlining(inlineCall)) {
-            AsmUtil.genThrow(
-                codegen.v,
-                "java/lang/UnsupportedOperationException",
-                "Call is a part of inline call cycle: ${expression.render()}"
-            )
-            return
-        }
+        // See `IrSourceCompilerForInline.doCreateMethodNodeFromSource` for inline cycle detection.
+        state.globalInlineContext.enterIntoInlining(null)
+        codegen.context.callsBeingInlined.add(expression to codegen.irFunction)
         try {
             performInline(
                 expression.symbol.owner.typeParameters.map { it.symbol },
@@ -187,7 +159,8 @@ class IrInlineCodegen(
                 false
             )
         } finally {
-            state.globalInlineContext.exitFromInliningOf(inlineCall)
+            codegen.context.callsBeingInlined.apply { removeAt(size - 1) }
+            state.globalInlineContext.exitFromInliningOf(null)
         }
     }
 

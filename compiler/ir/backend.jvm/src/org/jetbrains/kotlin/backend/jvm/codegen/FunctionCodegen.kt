@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.backend.common.lower.BOUND_VALUE_PARAMETER
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
 import org.jetbrains.kotlin.codegen.AsmUtil
+import org.jetbrains.kotlin.codegen.inline.wrapWithMaxLocalCalc
 import org.jetbrains.kotlin.codegen.mangleNameIfNeeded
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.codegen.visitAnnotableParameterCount
@@ -27,37 +28,33 @@ import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.resolve.jvm.annotations.JVM_SYNTHETIC_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.resolve.jvm.annotations.STRICTFP_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.resolve.jvm.annotations.SYNCHRONIZED_ANNOTATION_FQ_NAME
-import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodGenericSignature
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodParameterKind
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import org.jetbrains.org.objectweb.asm.*
 import org.jetbrains.org.objectweb.asm.commons.InstructionAdapter
+import org.jetbrains.org.objectweb.asm.tree.MethodNode
 
-open class FunctionCodegen(
+class FunctionCodegen(
     private val irFunction: IrFunction,
     private val classCodegen: ClassCodegen,
-    private val inlinedInto: ExpressionCodegen? = null,
+    private val inlinedInto: ExpressionCodegen? = null
 ) {
-    val context = classCodegen.context
-    val state = classCodegen.state
+    val context get() = classCodegen.context
+    val state get() = classCodegen.state
+    val signature = classCodegen.context.methodSignatureMapper.mapSignatureWithGeneric(irFunction)
+    val flags = calculateMethodFlags(irFunction.isStatic)
+    val methodNode = createMethodNodeForInlining()
 
-    val continuationClassCodegen = lazy {
-        classCodegen.createLocalClassCodegen(irFunction.continuationClass(), irFunction).also { it.generate() }
-    }
-
-    fun generate(): JvmMethodGenericSignature =
+    fun generate(): MethodNode =
         try {
             doGenerate()
         } catch (e: Throwable) {
             throw RuntimeException("Exception while generating code for:\n${irFunction.dump()}", e)
         }
 
-    private fun doGenerate(): JvmMethodGenericSignature {
-        val signature = classCodegen.methodSignatureMapper.mapSignatureWithGeneric(irFunction)
-
-        val flags = calculateMethodFlags(irFunction.isStatic)
-        var methodVisitor = createMethod(flags, signature)
+    private fun doGenerate(): MethodNode {
+        var methodVisitor: MethodVisitor = wrapWithMaxLocalCalc(methodNode)
 
         if (state.generateParametersMetadata && flags.and(Opcodes.ACC_SYNTHETIC) == 0) {
             generateParameterNames(irFunction, methodVisitor, signature, state)
@@ -86,6 +83,9 @@ open class FunctionCodegen(
             }
         }
 
+        val continuationClassCodegen = lazy {
+            ClassCodegen.getOrCreate(irFunction.continuationClass(), context, irFunction).also { it.generate() }
+        }
         if (!state.classBuilderMode.generateBodies || flags.and(Opcodes.ACC_ABSTRACT) != 0 || irFunction.isExternal) {
             generateAnnotationDefaultValueIfNeeded(methodVisitor)
         } else {
@@ -117,8 +117,7 @@ open class FunctionCodegen(
         if (continuationClassCodegen.isInitialized()) {
             continuationClassCodegen.value.done()
         }
-
-        return signature
+        return methodNode
     }
 
     // Since the only arguments to anonymous object constructors are captured variables and complex
@@ -193,11 +192,12 @@ open class FunctionCodegen(
                 synchronizedFlag
     }
 
-    protected open fun createMethod(flags: Int, signature: JvmMethodGenericSignature): MethodVisitor =
-        classCodegen.visitor.newMethod(
-            irFunction.OtherOrigin,
+    private fun createMethodNodeForInlining(): MethodNode =
+        MethodNode(
+            Opcodes.API_VERSION,
             flags,
-            signature.asmMethod.name, signature.asmMethod.descriptor,
+            signature.asmMethod.name,
+            signature.asmMethod.descriptor,
             if (flags.and(Opcodes.ACC_SYNTHETIC) != 0) null else signature.genericsSignature,
             getThrownExceptions(irFunction)?.toTypedArray()
         )
