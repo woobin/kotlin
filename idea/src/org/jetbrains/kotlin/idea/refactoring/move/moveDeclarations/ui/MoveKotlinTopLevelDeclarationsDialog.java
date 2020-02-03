@@ -12,7 +12,6 @@ import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.openapi.util.Pass;
 import com.intellij.psi.PsiDirectory;
 import com.intellij.psi.PsiFile;
-import com.intellij.refactoring.BaseRefactoringProcessor;
 import com.intellij.refactoring.RefactoringBundle;
 import com.intellij.refactoring.classMembers.AbstractMemberInfoModel;
 import com.intellij.refactoring.classMembers.MemberInfoBase;
@@ -41,7 +40,6 @@ import org.jetbrains.kotlin.idea.refactoring.move.MoveUtilsKt;
 import org.jetbrains.kotlin.idea.refactoring.ui.KotlinDestinationFolderComboBox;
 import org.jetbrains.kotlin.idea.refactoring.ui.KotlinFileChooserDialog;
 import org.jetbrains.kotlin.idea.util.ExpectActualUtilKt;
-import org.jetbrains.kotlin.psi.KtElement;
 import org.jetbrains.kotlin.psi.KtFile;
 import org.jetbrains.kotlin.psi.KtNamedDeclaration;
 import org.jetbrains.kotlin.psi.KtPureElement;
@@ -50,10 +48,8 @@ import org.jetbrains.kotlin.psi.psiUtil.KtPsiUtilKt;
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
-import java.util.Collection;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import static org.jetbrains.kotlin.idea.roots.ProjectRootUtilsKt.getSuitableDestinationSourceRoots;
 
@@ -147,6 +143,24 @@ public class MoveKotlinTopLevelDeclarationsDialog extends RefactoringDialog {
         initMemberInfo(elementsToMove, sourceFiles);
 
         updateControls();
+
+        initializedCheckBoxesState = getCheckboxesState(true);
+    }
+
+    private final BitSet initializedCheckBoxesState;
+    private BitSet getCheckboxesState(boolean applyDefaults) {
+
+        BitSet state = new BitSet(7);
+
+        state.set(0, applyDefaults || cbSearchInComments.isSelected()); //cbSearchInComments default is true
+        state.set(1, applyDefaults || cbSearchTextOccurrences.isSelected()); //cbSearchTextOccurrences default is true
+        state.set(2, applyDefaults || cbDeleteEmptySourceFiles.isSelected()); //cbDeleteEmptySourceFiles default is true
+        state.set(3, applyDefaults || cbApplyMPPDeclarationsMove.isSelected()); //cbApplyMPPDeclarationsMove default is true
+        state.set(4, cbSpecifyFileNameInPackage.isSelected());
+        state.set(5, cbUpdatePackageDirective.isSelected());
+        state.set(6, cbSearchReferences.isSelected());
+
+        return state;
     }
 
     private static List<KtFile> getSourceFiles(@NotNull Collection<KtNamedDeclaration> elementsToMove) {
@@ -423,16 +437,18 @@ public class MoveKotlinTopLevelDeclarationsDialog extends RefactoringDialog {
         return elementsToMove;
     }
 
-    private Model<BaseRefactoringProcessor> getModel() throws ConfigurationException  {
+    private MoveKotlinTopLevelDeclarationsModel getModel() throws ConfigurationException  {
 
         DirectoryChooser.ItemWrapper selectedItem = (DirectoryChooser.ItemWrapper) destinationFolderCB.getComboBox().getSelectedItem();
         PsiDirectory selectedPsiDirectory = selectedItem != null ? selectedItem.getDirectory() : initialTargetDirectory;
 
         boolean mppDeclarationSelected = cbApplyMPPDeclarationsMove.isSelected() && isMppDeclarationSelected();
 
+        List<KtNamedDeclaration> selectedElements = getSelectedElementsToMoveChecked();
+
         return new MoveKotlinTopLevelDeclarationsModel(
                 myProject,
-                getSelectedElementsToMoveChecked(),
+                selectedElements,
                 getTargetPackage(),
                 selectedPsiDirectory,
                 tfFileNameInPackage.getText(),
@@ -452,9 +468,9 @@ public class MoveKotlinTopLevelDeclarationsDialog extends RefactoringDialog {
     @Override
     protected void doAction() {
 
-        BaseRefactoringProcessor processor;
+        ModelResultWithFUSData modelResult;
         try {
-            processor = getModel().computeModelResult();
+            modelResult = getModel().computeModelResult();
         }
         catch (ConfigurationException e) {
             setErrorText(e.getMessage());
@@ -464,7 +480,13 @@ public class MoveKotlinTopLevelDeclarationsDialog extends RefactoringDialog {
         saveRefactoringSettings();
 
         try {
-            invokeRefactoring(processor);
+            MoveUtilsKt.logFusForMoveRefactoring(
+                    modelResult.getElementsCount(),
+                    modelResult.getEntityToMove(),
+                    modelResult.getDestination(),
+                    getCheckboxesState(false).equals(initializedCheckBoxesState),
+                    () -> invokeRefactoring(modelResult.getProcessor())
+            );
         } catch (IncorrectOperationException e) {
             CommonRefactoringUtil.showErrorMessage(RefactoringBundle.message("error.title"), e.getMessage(), null, myProject);
         }

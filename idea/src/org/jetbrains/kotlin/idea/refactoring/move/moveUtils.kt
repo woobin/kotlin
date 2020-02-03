@@ -37,6 +37,7 @@ import org.jetbrains.kotlin.idea.refactoring.fqName.isImported
 import org.jetbrains.kotlin.idea.references.KtSimpleNameReference
 import org.jetbrains.kotlin.idea.references.KtSimpleNameReference.ShorteningMode
 import org.jetbrains.kotlin.idea.references.mainReference
+import org.jetbrains.kotlin.idea.statistics.MoveRefactoringFUSCollector
 import org.jetbrains.kotlin.idea.util.application.executeCommand
 import org.jetbrains.kotlin.idea.util.application.runWriteAction
 import org.jetbrains.kotlin.load.java.descriptors.JavaCallableMemberDescriptor
@@ -54,7 +55,9 @@ import org.jetbrains.kotlin.resolve.scopes.receivers.ImplicitReceiver
 import org.jetbrains.kotlin.types.expressions.DoubleColonLHS
 import org.jetbrains.kotlin.utils.addIfNotNull
 import java.io.File
+import java.lang.System.currentTimeMillis
 import java.util.*
+import javax.swing.JCheckBox
 
 sealed class ContainerInfo {
     abstract val fqName: FqName?
@@ -678,4 +681,30 @@ internal fun getTargetPackageFqName(targetContainer: PsiElement): FqName? {
         return if (targetPackage != null) FqName(targetPackage.qualifiedName) else null
     }
     return if (targetContainer is KtFile) targetContainer.packageFqName else null
+}
+
+internal fun logFusForMoveRefactoring(
+    numberOfEntities: Int,
+    entity: MoveRefactoringFUSCollector.MovedEntity,
+    destination: MoveRefactoringFUSCollector.MoveRefactoringDestination,
+    isDefault: Boolean,
+    body: Runnable
+) {
+    val timeStarted = currentTimeMillis()
+
+    var succeeded = false
+    try {
+        body.run()
+        succeeded = true
+    } finally {
+        MoveRefactoringFUSCollector.log(
+            timeStarted = timeStarted,
+            timeFinished = currentTimeMillis(),
+            numberOfEntities = numberOfEntities,
+            destination = destination,
+            isDefault = isDefault,
+            entity = entity,
+            isSucceeded = succeeded,
+        )
+    }
 }

@@ -12,6 +12,8 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.refactoring.RefactoringBundle
 import com.intellij.refactoring.move.MoveCallback
 import org.jetbrains.kotlin.idea.refactoring.move.moveDeclarations.*
+import org.jetbrains.kotlin.idea.statistics.MoveRefactoringFUSCollector.MoveRefactoringDestination
+import org.jetbrains.kotlin.idea.statistics.MoveRefactoringFUSCollector.MovedEntity
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtElement
 
@@ -22,7 +24,7 @@ internal class MoveKotlinNestedClassesModel(
     val originalClass: KtClassOrObject,
     val targetClass: PsiElement?,
     val moveCallback: MoveCallback?
-) : Model<MoveKotlinDeclarationsProcessor> {
+) : Model {
 
     private fun getCheckedTargetClass(): KtElement {
         val targetClass = this.targetClass ?: throw ConfigurationException("No destination class specified")
@@ -48,7 +50,7 @@ internal class MoveKotlinNestedClassesModel(
     override fun computeModelResult() = computeModelResult(throwOnConflicts = false)
 
     @Throws(ConfigurationException::class)
-    override fun computeModelResult(throwOnConflicts: Boolean): MoveKotlinDeclarationsProcessor {
+    override fun computeModelResult(throwOnConflicts: Boolean): ModelResultWithFUSData {
         val elementsToMove = selectedElementsToMove
         val target = KotlinMoveTargetForExistingElement(getCheckedTargetClass())
         val delegate = MoveDeclarationsDelegate.NestedClass()
@@ -64,6 +66,13 @@ internal class MoveKotlinNestedClassesModel(
             openInEditor = openInEditorCheckBox
         )
 
-        return MoveKotlinDeclarationsProcessor(descriptor, Mover.Default, throwOnConflicts)
+        val processor = MoveKotlinDeclarationsProcessor(descriptor, Mover.Default, throwOnConflicts)
+
+        return ModelResultWithFUSData(
+            processor,
+            elementsToMove.size,
+            MovedEntity.CLASSES,
+            MoveRefactoringDestination.DECLARATION
+        )
     }
 }
