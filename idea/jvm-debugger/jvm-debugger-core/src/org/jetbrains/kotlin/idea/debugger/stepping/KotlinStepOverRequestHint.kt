@@ -29,6 +29,7 @@ import org.jetbrains.kotlin.idea.debugger.safeLineNumber
 import org.jetbrains.kotlin.idea.debugger.safeLocation
 import org.jetbrains.kotlin.idea.debugger.safeMethod
 import org.jetbrains.kotlin.load.java.JvmAbi
+import org.jetbrains.org.objectweb.asm.Type
 
 // Originally copied from RequestHint
 class KotlinStepOverRequestHint(
@@ -40,13 +41,27 @@ class KotlinStepOverRequestHint(
         private val LOG = Logger.getInstance(KotlinStepOverRequestHint::class.java)
     }
 
+    private class LocationData(val method: String, val signature: Type, val declaringType: String) {
+        companion object {
+            fun create(location: Location?): LocationData? {
+                val method = location?.safeMethod() ?: return null
+                val signature = Type.getMethodType(method.signature())
+                return LocationData(method.name(), signature, location.declaringType().name())
+            }
+        }
+    }
+
+    private val startLocation = LocationData.create(suspendContext.getLocationCompat())
+
     override fun getNextStepDepth(context: SuspendContextImpl): Int {
         try {
             val frameProxy = context.frameProxy ?: return STOP
-            if (isTheSameFrame(context)) {
-                val location = frameProxy.safeLocation()
+            val location = frameProxy.safeLocation()
 
-                if (location != null && location.safeLineNumber() == JvmAbi.COROUTINE_BEFORE_SUSPEND_SYNTHETIC_LINE_NUMBER) {
+            if (isTheSameFrame(context)) {
+                val lineNumber = location?.safeLineNumber()
+
+                if (lineNumber == JvmAbi.COROUTINE_BEFORE_SUSPEND_SYNTHETIC_LINE_NUMBER) {
                     // Coroutine will sleep now so we can't continue stepping.
                     // Let's put a run-to-cursor breakpoint and resume the debugger.
                     return if (!installCoroutineResumedBreakpoint(context)) STOP else RESUME
@@ -55,7 +70,12 @@ class KotlinStepOverRequestHint(
                 val isAcceptable = location != null && filter.locationMatches(context, location)
                 return if (isAcceptable) STOP else StepRequest.STEP_OVER
             } else if (isSteppedOut) {
-                val lineNumber = frameProxy.safeLocation()?.safeLineNumber(JAVA_STRATUM) ?: -1
+                val method = location?.safeMethod()
+                if (method != null && method.isSyntheticMethodForDefaultParameters() && isSteppedFromDefaultParamsOriginal(location)) {
+                    return StepRequest.STEP_OVER
+                }
+
+                val lineNumber = location?.safeLineNumber(JAVA_STRATUM) ?: -1
                 return if (lineNumber >= 0) STOP else StepRequest.STEP_OVER
             }
 
@@ -66,6 +86,45 @@ class KotlinStepOverRequestHint(
         }
 
         return STOP
+    }
+
+    private fun isSteppedFromDefaultParamsOriginal(location: Location): Boolean {
+        val startLocation = this.startLocation ?: return false
+        val endLocation = LocationData.create(location) ?: return false
+
+        if (startLocation.declaringType != endLocation.declaringType) {
+            return false
+        }
+
+        if (startLocation.method + JvmAbi.DEFAULT_PARAMS_IMPL_SUFFIX != endLocation.method) {
+            return false
+        }
+
+        val startArgs = startLocation.signature.argumentTypes
+        val endArgs = endLocation.signature.argumentTypes
+
+        if (startArgs.size >= endArgs.size) {
+            // Default params function should always have at least one additional flag parameter
+            return false
+        }
+
+        for ((index, type) in startArgs.withIndex()) {
+            if (endArgs[index] != type) {
+                return false
+            }
+        }
+
+        for (index in startArgs.size until (endArgs.size - 1)) {
+            if (endArgs[index].sort != Type.INT) {
+                return false
+            }
+        }
+
+        if (endArgs[endArgs.size - 1].descriptor != "Ljava/lang/Object;") {
+            return false
+        }
+
+        return true
     }
 
     private fun installCoroutineResumedBreakpoint(context: SuspendContextImpl): Boolean {
