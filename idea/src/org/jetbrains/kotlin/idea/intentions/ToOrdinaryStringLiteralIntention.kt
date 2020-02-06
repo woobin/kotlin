@@ -67,11 +67,15 @@ class ToOrdinaryStringLiteralIntention : SelfTargetingOffsetIndependentIntention
         editor?.caretModel?.moveToOffset(offset)
     }
 
-    private fun String.escape(): String {
+    private fun String.escape(escapeLineSeparators: Boolean = true): String {
         var text = this
         text = text.replace("\\", "\\\\")
         text = text.replace("\"", "\\\"")
-        return StringUtil.convertLineSeparators(text, "\\n")
+        return if (escapeLineSeparators) text.escapeLineSeparators() else text
+    }
+
+    private fun String.escapeLineSeparators(): String {
+        return StringUtil.convertLineSeparators(this, "\\n")
     }
 
     private fun getTrimIndentCall(
@@ -93,9 +97,11 @@ class ToOrdinaryStringLiteralIntention : SelfTargetingOffsetIndependentIntention
         }
 
         val stringTemplateText = entries
-            .joinToString(separator = "") { it.text }
+            .joinToString(separator = "") {
+                if (it is KtLiteralStringTemplateEntry) it.text.escape(escapeLineSeparators = false) else it.text
+            }
             .let { if (marginPrefix != null) it.trimMargin(marginPrefix) else it.trimIndent() }
-            .escape()
+            .escapeLineSeparators()
 
         return TrimIndentCall(qualifiedExpression, stringTemplateText)
     }
