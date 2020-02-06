@@ -12,6 +12,8 @@ import com.sun.jdi.*
 import org.jetbrains.kotlin.idea.debugger.coroutine.command.CoroutineBuilder
 import org.jetbrains.kotlin.idea.debugger.coroutine.data.CoroutineInfoCache
 import org.jetbrains.kotlin.idea.debugger.coroutine.data.CoroutineInfoData
+import org.jetbrains.kotlin.idea.debugger.coroutine.util.invokeMethodAsObject
+import org.jetbrains.kotlin.idea.debugger.coroutine.util.invokeMethodAsVoid
 import org.jetbrains.kotlin.idea.debugger.coroutine.util.logger
 import org.jetbrains.kotlin.idea.debugger.evaluate.ExecutionContext
 

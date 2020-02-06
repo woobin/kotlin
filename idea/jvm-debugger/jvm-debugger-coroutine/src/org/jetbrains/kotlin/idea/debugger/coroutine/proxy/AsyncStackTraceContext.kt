@@ -14,11 +14,11 @@ import com.intellij.debugger.ui.impl.watch.ValueDescriptorImpl
 import com.intellij.xdebugger.frame.XNamedValue
 import com.sun.jdi.*
 import org.jetbrains.kotlin.codegen.coroutines.CONTINUATION_VARIABLE_NAME
-import org.jetbrains.kotlin.idea.debugger.evaluate.ExecutionContext
-import org.jetbrains.kotlin.idea.debugger.coroutine.util.logger
 import org.jetbrains.kotlin.idea.debugger.SUSPEND_LAMBDA_CLASSES
 import org.jetbrains.kotlin.idea.debugger.coroutine.data.CoroutineStackFrameItem
 import org.jetbrains.kotlin.idea.debugger.coroutine.data.DefaultCoroutineStackFrameItem
+import org.jetbrains.kotlin.idea.debugger.coroutine.util.*
+import org.jetbrains.kotlin.idea.debugger.evaluate.ExecutionContext
 import org.jetbrains.kotlin.idea.debugger.isSubtype
 import org.jetbrains.kotlin.idea.debugger.safeVisibleVariableByName
 

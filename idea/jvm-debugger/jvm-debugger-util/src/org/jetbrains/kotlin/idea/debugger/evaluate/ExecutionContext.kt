@@ -6,12 +6,10 @@
 package org.jetbrains.kotlin.idea.debugger.evaluate
 
 import com.intellij.debugger.engine.DebugProcessImpl
-import com.intellij.debugger.engine.DebuggerManagerThreadImpl
 import com.intellij.debugger.engine.SuspendContextImpl
 import com.intellij.debugger.engine.evaluation.EvaluateException
 import com.intellij.debugger.engine.evaluation.EvaluateExceptionUtil
 import com.intellij.debugger.engine.evaluation.EvaluationContextImpl
-import com.intellij.debugger.impl.DebuggerContextImpl
 import com.intellij.debugger.impl.DebuggerUtilsEx
 import com.intellij.debugger.jdi.StackFrameProxyImpl
 import com.intellij.debugger.jdi.VirtualMachineProxyImpl
@@ -104,62 +102,4 @@ class ExecutionContext(val evaluationContext: EvaluationContextImpl, val framePr
 
     fun findClassSafe(className: String): ClassType? =
         hopelessAware { findClass(className) as? ClassType }
-
-
-    fun invokeMethodAsString(instance: ObjectReference, methodName: String): String? =
-        (findAndInvoke(instance, instance.referenceType(), methodName, "()Ljava/lang/String;") as? StringReference)?.value() ?: null
-
-    fun invokeMethodAsInt(instance: ObjectReference, methodName: String): Int? =
-        (findAndInvoke(instance, instance.referenceType(), methodName, "()I") as? IntegerValue)?.value() ?: null
-
-    fun invokeMethodAsObject(type: ClassType, methodName: String, vararg params: Value): ObjectReference? =
-        invokeMethodAsObject(type, methodName, null, *params)
-
-    fun invokeMethodAsObject(type: ClassType, methodName: String, methodSignature: String?, vararg params: Value): ObjectReference? =
-        findAndInvoke(type, methodName, methodSignature, *params) as? ObjectReference
-
-    fun invokeMethodAsObject(instance: ObjectReference, methodName: String, vararg params: Value): ObjectReference? =
-        invokeMethodAsObject(instance, methodName, null, *params)
-
-    fun invokeMethodAsObject(instance: ObjectReference, methodName: String, methodSignature: String?, vararg params: Value): ObjectReference? =
-        findAndInvoke(instance, methodName, methodSignature, *params) as? ObjectReference
-
-    fun invokeMethodAsObject(instance: ObjectReference, method: Method, vararg params: Value): ObjectReference? =
-        invokeMethod(instance, method, params.asList()) as? ObjectReference
-
-    fun invokeMethodAsVoid(type: ClassType, methodName: String, methodSignature: String? = null, vararg params: Value = emptyArray()) =
-        findAndInvoke(type, methodName, methodSignature, *params)
-
-    fun invokeMethodAsVoid(instance: ObjectReference, methodName: String, methodSignature: String? = null, vararg params: Value = emptyArray()) =
-        findAndInvoke(instance, methodName, methodSignature, *params)
-
-    fun invokeMethodAsArray(instance: ClassType, methodName: String, methodSignature: String, vararg params: Value): ArrayReference? =
-        findAndInvoke(instance, methodName, methodSignature, *params) as? ArrayReference
-
-    private fun findAndInvoke(ref: ObjectReference, type: ReferenceType, name: String, methodSignature: String, vararg params: Value): Value? {
-        val method = type.methodsByName(name, methodSignature).single()
-        return invokeMethod(ref, method, params.asList())
-    }
-
-    /**
-     * static method invocation
-     */
-    fun findAndInvoke(type: ClassType, name: String, methodSignature: String? = null, vararg params: Value): Value? {
-        val method =
-            if (methodSignature is String)
-                type.methodsByName(name, methodSignature).single()
-            else
-                type.methodsByName(name).single()
-        return invokeMethod(type, method, params.asList())
-    }
-
-    fun findAndInvoke(instance: ObjectReference, name: String, methodSignature: String? = null, vararg params: Value): Value? {
-        val type = instance.referenceType()
-        val method =
-            if (methodSignature is String)
-                type.methodsByName(name, methodSignature).single()
-            else
-                type.methodsByName(name).single()
-        return invokeMethod(instance, method, params.asList())
-    }
 }
