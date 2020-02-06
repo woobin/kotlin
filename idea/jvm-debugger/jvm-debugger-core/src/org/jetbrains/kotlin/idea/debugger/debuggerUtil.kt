@@ -27,6 +27,7 @@ import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.inline.InlineUtil
+import org.jetbrains.org.objectweb.asm.Type
 import java.util.*
 
 fun Location.isInKotlinSources(): Boolean {
@@ -187,15 +188,6 @@ fun suspendFunctionFirstLineLocation(location: Location): Int? {
 fun isOnSuspendReturnOrReenter(location: Location): Boolean {
     val suspendStartLineNumber = suspendFunctionFirstLineLocation(location) ?: return false
     return suspendStartLineNumber == location.lineNumber()
-}
-
-fun isLastLineLocationInMethod(location: Location): Boolean {
-    val knownLines = location.method().safeAllLineLocations().map { it.lineNumber() }.filter { it != -1 }
-    if (knownLines.isEmpty()) {
-        return false
-    }
-
-    return knownLines.max() == location.lineNumber()
 }
 
 fun isOneLineMethod(location: Location): Boolean {

@@ -28,18 +28,18 @@ public class KotlinDelegatedPropertyRendererConfigurableUi implements Configurab
 
     @Override
     public void reset(@NotNull KotlinDebuggerSettings settings) {
-        boolean flag = settings.getDEBUG_RENDER_DELEGATED_PROPERTIES();
+        boolean flag = settings.getRenderDelegatedProperties();
         renderDelegatedProperties.setSelected(flag);
     }
 
     @Override
     public boolean isModified(@NotNull KotlinDebuggerSettings settings) {
-        return settings.getDEBUG_RENDER_DELEGATED_PROPERTIES() != renderDelegatedProperties.isSelected();
+        return settings.getRenderDelegatedProperties() != renderDelegatedProperties.isSelected();
     }
 
     @Override
     public void apply(@NotNull KotlinDebuggerSettings settings) {
-        settings.setDEBUG_RENDER_DELEGATED_PROPERTIES(renderDelegatedProperties.isSelected());
+        settings.setRenderDelegatedProperties(renderDelegatedProperties.isSelected());
     }
 
     @NotNull

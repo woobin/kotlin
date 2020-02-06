@@ -43,4 +43,3 @@ fun PsiClass.collectProperties(): Array<DescriptorMemberChooserObject> {
     }
     return emptyArray()
 }
-
