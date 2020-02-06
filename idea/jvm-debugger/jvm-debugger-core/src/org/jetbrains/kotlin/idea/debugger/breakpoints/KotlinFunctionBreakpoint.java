@@ -13,7 +13,6 @@ import com.intellij.debugger.engine.evaluation.EvaluateException;
 import com.intellij.debugger.engine.evaluation.EvaluationContextImpl;
 import com.intellij.debugger.engine.requests.RequestManagerImpl;
 import com.intellij.debugger.impl.DebuggerUtilsEx;
-import com.intellij.debugger.impl.DebuggerUtilsImpl;
 import com.intellij.debugger.impl.PositionUtil;
 import com.intellij.debugger.jdi.ClassesByNameProvider;
 import com.intellij.debugger.jdi.MethodBytecodeUtil;
@@ -22,7 +21,6 @@ import com.intellij.debugger.ui.breakpoints.*;
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
-import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.progress.*;
@@ -54,11 +52,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.java.debugger.breakpoints.properties.JavaMethodBreakpointProperties;
 import org.jetbrains.kotlin.asJava.LightClassUtilsKt;
-import org.jetbrains.kotlin.asJava.classes.KtLightClass;
-import org.jetbrains.kotlin.psi.KtClass;
-import org.jetbrains.kotlin.psi.KtClassOrObject;
-import org.jetbrains.kotlin.psi.KtDeclaration;
-import org.jetbrains.kotlin.psi.KtPrimaryConstructor;
+import org.jetbrains.kotlin.asJava.elements.KtLightMethod;
+import org.jetbrains.kotlin.idea.decompiler.classFile.KtClsFile;
+import org.jetbrains.kotlin.idea.decompiler.navigation.SourceNavigationHelper;
+import org.jetbrains.kotlin.psi.*;
 import org.jetbrains.org.objectweb.asm.Label;
 import org.jetbrains.org.objectweb.asm.MethodVisitor;
 import org.jetbrains.org.objectweb.asm.Opcodes;
@@ -539,20 +536,22 @@ public class KotlinFunctionBreakpoint extends BreakpointWithHighlighter<JavaMeth
         MethodDescriptor descriptor = DumbService.getInstance(project).runReadActionInSmartMode(() -> {
             // MODIFICATION: Start Kotlin implementation
             PsiMethod method = resolveJvmMethodFromKotlinDeclaration(project, sourcePosition);
-            // MODIFICATION: End Kotlin implementation
             if (method == null) {
                 return null;
             }
-            int methodOffset = method.getTextOffset();
-            if (!DocumentUtil.isValidOffset(methodOffset, document) || document.getLineNumber(methodOffset) < sourcePosition.getLine()) {
-                return null;
+
+            KtDeclaration kotlinOrigin = getSourceOrigin(method);
+
+            if (kotlinOrigin != null) {
+                int offset = kotlinOrigin.getTextOffset();
+                if (!DocumentUtil.isValidOffset(offset, document) || document.getLineNumber(offset) < sourcePosition.getLine()) {
+                    return null;
+                }
             }
 
-            PsiIdentifier identifier = method.getNameIdentifier();
-            int methodNameOffset = identifier != null? identifier.getTextOffset() : methodOffset;
-            MethodDescriptor res =
-                    new MethodDescriptor();
+            MethodDescriptor res = new MethodDescriptor();
             res.methodName = JVMNameUtil.getJVMMethodName(method);
+
             try {
                 res.methodSignature = JVMNameUtil.getJVMSignature(method);
                 res.isStatic = method.hasModifierProperty(PsiModifier.STATIC);
@@ -560,8 +559,9 @@ public class KotlinFunctionBreakpoint extends BreakpointWithHighlighter<JavaMeth
             catch (IndexNotReadyException ignored) {
                 return null;
             }
-            res.methodLine = document.getLineNumber(methodNameOffset);
+
             return res;
+            // MODIFICATION: End Kotlin implementation
         });
         if (descriptor == null || descriptor.methodName == null || descriptor.methodSignature == null) {
             return null;
@@ -571,6 +571,22 @@ public class KotlinFunctionBreakpoint extends BreakpointWithHighlighter<JavaMeth
 
     // MODIFICATION: Start Kotlin implementation
     @Nullable
+    private static KtDeclaration getSourceOrigin(PsiMethod method) {
+        if (method instanceof KtLightMethod) {
+            KtDeclaration origin = ((KtLightMethod) method).getKotlinOrigin();
+            if (origin != null) {
+                KtDeclaration sourceOrigin = SourceNavigationHelper.INSTANCE.getNavigationElement(origin);
+                if (sourceOrigin.getContainingFile() instanceof KtClsFile) {
+                    return null;
+                }
+                return sourceOrigin;
+            }
+        }
+
+        return null;
+    }
+
+    @Nullable
     private static PsiMethod resolveJvmMethodFromKotlinDeclaration(@NotNull Project project, @NotNull SourcePosition sourcePosition) {
         KtDeclaration declaration = PositionUtil.getPsiElementAt(project, KtDeclaration.class, sourcePosition);
 
@@ -579,7 +595,7 @@ public class KotlinFunctionBreakpoint extends BreakpointWithHighlighter<JavaMeth
             if (constructor != null) {
                 declaration = constructor;
             } else {
-                KtLightClass lightClass = LightClassUtilsKt.toLightClass((KtClassOrObject) declaration);
+                PsiClass lightClass = SourceNavigationHelper.INSTANCE.getOriginalClass((KtClassOrObject) declaration);
                 if (lightClass != null) {
                     PsiMethod[] constructors = lightClass.getConstructors();
                     if (constructors.length > 0) {
@@ -595,7 +611,8 @@ public class KotlinFunctionBreakpoint extends BreakpointWithHighlighter<JavaMeth
             return null;
         }
 
-        for (PsiElement element : LightClassUtilsKt.toLightElements(declaration)) {
+        KtDeclaration originalDeclaration = SourceNavigationHelper.INSTANCE.getOriginalElement(declaration);
+        for (PsiElement element : LightClassUtilsKt.toLightElements(originalDeclaration)) {
             if (element instanceof PsiMethod) {
                 // TODO handle all light methods
                 return (PsiMethod) element;
@@ -668,7 +685,6 @@ public class KotlinFunctionBreakpoint extends BreakpointWithHighlighter<JavaMeth
         String methodName;
         JVMName methodSignature;
         boolean isStatic;
-        int methodLine;
     }
 
     private static void processPreparedSubTypes(ReferenceType classType,
