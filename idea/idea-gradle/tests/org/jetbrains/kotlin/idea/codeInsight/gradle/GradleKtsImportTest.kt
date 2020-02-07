@@ -5,7 +5,9 @@
 
 package org.jetbrains.kotlin.idea.codeInsight.gradle
 
+import com.intellij.openapi.externalSystem.model.ExternalSystemException
 import com.intellij.openapi.vfs.LocalFileSystem
+import junit.framework.AssertionFailedError
 import org.jetbrains.kotlin.idea.core.script.ScriptConfigurationManager
 import org.jetbrains.kotlin.idea.core.script.applySuggestedScriptConfiguration
 import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptConfigurationCacheScope
@@ -15,6 +17,7 @@ import org.jetbrains.kotlin.idea.core.script.hasSuggestedScriptConfiguration
 import org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationWrapper
 import org.jetbrains.kotlin.test.JUnitParameterizedWithIdeaConfigurationRunner
 import org.jetbrains.kotlin.test.RunnerFactoryWithMuteInDatabase
+import org.jetbrains.kotlin.tools.projectWizard.core.classMismatchError
 import org.jetbrains.plugins.gradle.settings.GradleSettings
 import org.jetbrains.plugins.gradle.tooling.annotation.TargetVersions
 import org.junit.Test
@@ -22,6 +25,7 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
 import java.io.File
+import java.lang.IllegalStateException
 
 @RunWith(value = JUnitParameterizedWithIdeaConfigurationRunner::class)
 @Parameterized.UseParametersRunnerFactory(RunnerFactoryWithMuteInDatabase::class)
@@ -44,6 +48,21 @@ class GradleKtsImportTest : GradleImportingTestCase() {
     fun testEmpty() {
         configureByFiles()
         importProject()
+
+        checkConfiguration("build.gradle.kts")
+    }
+
+    @Test
+    @TargetVersions("6.0.1+")
+    fun testError() {
+        configureByFiles()
+        try {
+            importProject()
+        } catch (e: AssertionFailedError) {
+            if (e.message?.contains("Kotlin DSL scripts contains errors") != true) {
+                throw e
+            }
+        }
 
         checkConfiguration("build.gradle.kts")
     }

@@ -29,7 +29,8 @@ data class KotlinDslScriptModel(
     data class Message(
         val severity: Severity,
         val text: String,
-        val position: Position? = null
+        val details: String = "",
+        val position: Position
     )
 
     data class Position(val line: Int, val column: Int)

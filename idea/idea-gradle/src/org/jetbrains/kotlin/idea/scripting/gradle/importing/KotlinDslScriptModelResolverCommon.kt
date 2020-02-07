@@ -14,6 +14,7 @@ import org.gradle.tooling.model.kotlin.dsl.EditorReportSeverity
 import org.gradle.tooling.model.kotlin.dsl.KotlinDslModelsParameters.*
 import org.gradle.tooling.model.kotlin.dsl.KotlinDslScriptsModel
 import org.jetbrains.plugins.gradle.service.project.AbstractProjectResolverExtension
+import java.lang.IllegalStateException
 
 internal val LOG = Logger.getInstance(KotlinDslScriptModelResolverCommon::class.java)
 
@@ -27,7 +28,7 @@ abstract class KotlinDslScriptModelResolverCommon : AbstractProjectResolverExten
         return listOf(
             Pair(
                 PROVIDER_MODE_SYSTEM_PROPERTY_NAME,
-                STRICT_CLASSPATH_MODE_SYSTEM_PROPERTY_VALUE
+                CLASSPATH_MODE_SYSTEM_PROPERTY_VALUE
             )
         )
     }
@@ -44,7 +45,10 @@ abstract class KotlinDslScriptModelResolverCommon : AbstractProjectResolverExten
             model.exceptions.forEach {
                 messages.add(
                     KotlinDslScriptModel.Message(
-                        KotlinDslScriptModel.Severity.ERROR, it
+                        KotlinDslScriptModel.Severity.ERROR,
+                        it.substringBefore(System.lineSeparator()),
+                        it,
+                        KotlinDslScriptModel.Position(0, 0)
                     )
                 )
             }
@@ -57,11 +61,9 @@ abstract class KotlinDslScriptModelResolverCommon : AbstractProjectResolverExten
                             else -> KotlinDslScriptModel.Severity.ERROR
                         },
                         it.message,
-                        it.position?.let { position ->
-                            KotlinDslScriptModel
-                                .Position(position.line, position.column)
-                        }
-                    ))
+                        position = KotlinDslScriptModel.Position(it.position?.line ?: 0, it.position?.column ?: 0)
+                    )
+                )
             }
 
             // todo(KT-34440): take inputs snapshot before starting import
@@ -85,7 +87,15 @@ abstract class KotlinDslScriptModelResolverCommon : AbstractProjectResolverExten
                 "Couldn't get KotlinDslScriptsModel for $projectName:\n${model.message}\n${model.stackTrace}"
             )
         } else {
-            ideProject.KOTLIN_DSL_SCRIPT_MODELS.addAll(model.toListOfScriptModels())
+            val models = model.toListOfScriptModels()
+            KotlinDslScriptModelsUpdater.addModels(models)
+            if (models.containsErrors()) {
+                throw IllegalStateException("Kotlin DSL scripts contains errors")
+            }
         }
     }
+}
+
+private fun Collection<KotlinDslScriptModel>.containsErrors(): Boolean {
+    return any { it.messages.any { it.severity == KotlinDslScriptModel.Severity.ERROR } }
 }
