@@ -260,6 +260,10 @@ open class AbstractClassFileToSourceStubConverterTest : AbstractKotlinKapt3Test(
             kaptFlags.add(KaptFlag.STRICT)
         }
 
+        if (wholeFile.isOptionSet("STRIP_METADATA")) {
+            kaptFlags.add(KaptFlag.STRIP_METADATA)
+        }
+
         super.doTest(filePath)
         doTestWithJdk9(AbstractClassFileToSourceStubConverterTest::class.java, filePath)
         doTestWithJdk11(AbstractClassFileToSourceStubConverterTest::class.java, filePath)
