@@ -321,26 +321,38 @@ internal fun KtDeclaration.simpleVisibility(): String = when {
     else -> PsiModifier.PUBLIC
 }
 
+private val DEPRECATED_ANNOTATION_FQ_NAMES = listOf(
+    KotlinBuiltIns.FQ_NAMES.deprecated,
+    FqName(java.lang.Deprecated::class.java.name)
+)
+
 internal fun KtModifierListOwner.isDeprecated(support: KtUltraLightSupport? = null): Boolean {
-    val jetModifierList = this.modifierList ?: return false
-    if (jetModifierList.annotationEntries.isEmpty()) return false
+    val annotationEntries = this.modifierList?.annotationEntries?.takeIf { it.isNotEmpty() } ?: return false
 
-    val deprecatedFqName = KotlinBuiltIns.FQ_NAMES.deprecated
-    val deprecatedName = deprecatedFqName.shortName().asString()
+    val deprecatedName = KotlinBuiltIns.FQ_NAMES.deprecated.shortName().asString()
 
-    for (annotationEntry in jetModifierList.annotationEntries) {
+    // Fast path without resolution
+    for (annotationEntry in annotationEntries) {
         val typeReference = annotationEntry.typeReference ?: continue
 
-        val typeElement = typeReference.typeElement as? KtUserType ?: continue
         // If it's not a user type, it's definitely not a ref to deprecated
-
+        val typeElement = typeReference.typeElement as? KtUserType ?: continue
         val fqName = toQualifiedName(typeElement) ?: continue
 
-        if (deprecatedFqName == fqName) return true
-        if (deprecatedName == fqName.asString()) return true
+        if (deprecatedName == fqName.asString() || fqName in DEPRECATED_ANNOTATION_FQ_NAMES) {
+            return true
+        }
     }
 
-    return support?.findAnnotation(this, KotlinBuiltIns.FQ_NAMES.deprecated) !== null
+    if (support != null) {
+        for (fqName in DEPRECATED_ANNOTATION_FQ_NAMES) {
+            if (support.findAnnotation(this, fqName) != null) {
+                return true
+            }
+        }
+    }
+
+    return false
 }
 
 private fun toQualifiedName(userType: KtUserType): FqName? {
