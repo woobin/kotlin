@@ -139,7 +139,7 @@ class KtScratchExecutionSession(
             override fun shouldAnnotateClass(processingClassOrObject: KtClassOrObject) = true
             override fun shouldGenerateClass(processingClassOrObject: KtClassOrObject) = processingClassOrObject.containingKtFile == psiFile
             override fun shouldGenerateScript(script: KtScript) = false
-            override fun shouldGenerateCodeFragment(script: KtCodeFragment) = false
+            override fun shouldGenerateCodeFragment(codeFragment: KtCodeFragment) = false
         }
 
         val state = GenerationState.Builder(

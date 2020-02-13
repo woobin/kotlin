@@ -130,7 +130,7 @@ class GenerationState private constructor(
         abstract fun shouldGenerateClass(processingClassOrObject: KtClassOrObject): Boolean
         abstract fun shouldGeneratePackagePart(ktFile: KtFile): Boolean
         abstract fun shouldGenerateScript(script: KtScript): Boolean
-        abstract fun shouldGenerateCodeFragment(script: KtCodeFragment): Boolean
+        abstract fun shouldGenerateCodeFragment(codeFragment: KtCodeFragment): Boolean
         open fun shouldGenerateClassMembers(processingClassOrObject: KtClassOrObject) = shouldGenerateClass(processingClassOrObject)
 
         companion object {
@@ -140,7 +140,7 @@ class GenerationState private constructor(
                 override fun shouldGenerateClass(processingClassOrObject: KtClassOrObject): Boolean = true
                 override fun shouldGenerateScript(script: KtScript): Boolean = true
                 override fun shouldGeneratePackagePart(ktFile: KtFile): Boolean = true
-                override fun shouldGenerateCodeFragment(script: KtCodeFragment) = true
+                override fun shouldGenerateCodeFragment(codeFragment: KtCodeFragment) = true
             }
         }
     }
