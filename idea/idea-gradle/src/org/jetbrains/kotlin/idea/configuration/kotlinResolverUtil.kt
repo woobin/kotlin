@@ -14,6 +14,7 @@ import com.intellij.openapi.extensions.PluginId
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.PluginsAdvertiser
 import com.intellij.util.PlatformUtils
+import org.jetbrains.kotlin.idea.KotlinIdeaGradleBundle
 
 const val NATIVE_DEBUG_ID = "com.intellij.nativeDebug"
 
@@ -28,9 +29,9 @@ fun suggestNativeDebug(projectPath: String) {
 
     PluginsAdvertiser.NOTIFICATION_GROUP.createNotification(
         PluginsAdvertiser.DISPLAY_ID,
-        "Native Debug provides debugger for Kotlin/Native",
+        KotlinIdeaGradleBundle.message("notification.text.native.debug.provides.debugger.for.kotlin.native"),
         NotificationType.INFORMATION, null
-    ).addAction(object : NotificationAction("Install") {
+    ).addAction(object : NotificationAction(KotlinIdeaGradleBundle.message("action.text.install")) {
         override fun actionPerformed(e: AnActionEvent, notification: Notification) {
             PluginsAdvertiser.installAndEnablePlugins(setOf(NATIVE_DEBUG_ID)) { notification.expire() }
         }
