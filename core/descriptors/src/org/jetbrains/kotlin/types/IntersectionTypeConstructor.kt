@@ -24,9 +24,19 @@ import org.jetbrains.kotlin.resolve.scopes.MemberScope
 import org.jetbrains.kotlin.resolve.scopes.TypeIntersectionScope
 import org.jetbrains.kotlin.types.checker.KotlinTypeRefiner
 import org.jetbrains.kotlin.types.refinement.TypeRefinement
+import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import java.util.*
 
 class IntersectionTypeConstructor(typesToIntersect: Collection<KotlinType>) : TypeConstructor {
+    private var alternative: KotlinType? = null
+
+    private constructor(
+        typesToIntersect: Collection<KotlinType>,
+        alternative: KotlinType?,
+    ) : this(typesToIntersect) {
+        this.alternative = alternative
+    }
+
     init {
         assert(!typesToIntersect.isEmpty()) { "Attempt to create an empty intersection" }
     }
@@ -75,10 +85,16 @@ class IntersectionTypeConstructor(typesToIntersect: Collection<KotlinType>) : Ty
 
     @TypeRefinement
     override fun refine(kotlinTypeRefiner: KotlinTypeRefiner) =
-        IntersectionTypeConstructor(intersectedTypes.map { it.refine(kotlinTypeRefiner) })
+        transformComponents { it.refine(kotlinTypeRefiner) } ?: this
+
+    fun setAlternative(alternative: KotlinType?): IntersectionTypeConstructor {
+        return IntersectionTypeConstructor(intersectedTypes, alternative)
+    }
+
+    fun getAlternativeType(): KotlinType? = alternative
 }
 
-inline fun IntersectionTypeConstructor.transformComponents(
+fun IntersectionTypeConstructor.transformComponents(
     predicate: (KotlinType) -> Boolean = { true },
     transform: (KotlinType) -> KotlinType
 ): IntersectionTypeConstructor? {
@@ -95,4 +111,16 @@ inline fun IntersectionTypeConstructor.transformComponents(
     if (!changed) return null
 
     return IntersectionTypeConstructor(newSupertypes)
+        .setAlternative(getAlternativeType()?.updateIntersectionAlternative(predicate, transform))
+}
+
+private fun KotlinType.updateIntersectionAlternative(
+    predicate: (KotlinType) -> Boolean,
+    transform: (KotlinType) -> KotlinType,
+): KotlinType? {
+    constructor.safeAs<IntersectionTypeConstructor>()?.let { alternativeIntersection ->
+        return (alternativeIntersection.transformComponents(predicate, transform) ?: alternativeIntersection).createType()
+    }
+
+    return if (predicate(this)) transform(this) else this
 }
