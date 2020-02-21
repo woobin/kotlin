@@ -29,6 +29,7 @@ import com.intellij.ui.RowIcon
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.idea.caches.resolve.unsafeResolveToDescriptor
 import org.jetbrains.kotlin.idea.caches.resolve.util.getJavaMemberDescriptor
+import org.jetbrains.kotlin.idea.formatter.KotlinFormatterBundle
 import org.jetbrains.kotlin.idea.hierarchy.calls.HierarchyNodeDescriptor
 import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.psiUtil.createSmartPointer
@@ -140,7 +141,7 @@ class KotlinOverrideHierarchyNodeDescriptor(
             classDescriptor.parents.forEach { parentDescriptor ->
                 when (parentDescriptor) {
                     is MemberDescriptor -> {
-                        addText(" in ${parentDescriptor.name.asString()}", classNameAttributes)
+                        addText(KotlinFormatterBundle.message("text.in", parentDescriptor.name.asString()), classNameAttributes)
                         if (parentDescriptor is FunctionDescriptor) {
                             addText("()", classNameAttributes)
                         }
