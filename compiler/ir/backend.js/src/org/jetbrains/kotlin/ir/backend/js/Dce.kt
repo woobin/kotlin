@@ -145,21 +145,9 @@ fun usefulDeclarations(roots: Iterable<IrDeclaration>, context: JsIrBackendConte
         while (queue.isNotEmpty()) {
             val declaration = queue.pollFirst()
 
-            // TODO remove?
-            stageController.lazyLower(declaration)
-
             if (declaration is IrClass) {
                 declaration.superTypes.forEach {
                     (it.classifierOrNull as? IrClassSymbol)?.owner?.enqueue()
-                }
-
-                // TODO find out how `doResume` gets removed
-                if (declaration.symbol == context.ir.symbols.coroutineImpl) {
-                    declaration.declarations.forEach {
-                        if (it is IrSimpleFunction && it.name.asString() == "doResume") {
-                            it.enqueue()
-                        }
-                    }
                 }
             }
 
@@ -181,9 +169,6 @@ fun usefulDeclarations(roots: Iterable<IrDeclaration>, context: JsIrBackendConte
                 is IrVariable -> declaration.initializer
                 else -> null
             }
-
-            // TODO remove?
-            (body as? IrBody)?.let { stageController.lazyLower(it) }
 
             body?.acceptVoid(object : IrElementVisitorVoid {
                 override fun visitElement(element: IrElement) {
