@@ -7,7 +7,10 @@ package org.jetbrains.kotlin.idea.references
 
 import com.intellij.openapi.extensions.Extensions
 import com.intellij.openapi.util.TextRange
+import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiManager
+import com.intellij.psi.impl.PsiManagerEx
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.IncorrectOperationException
 import com.intellij.util.SmartList
@@ -70,6 +73,9 @@ class KtSimpleNameReference(expression: KtSimpleNameExpression) : KtSimpleRefere
         for (extension in Extensions.getArea(element.project).getExtensionPoint(SimpleNameReferenceExtension.EP_NAME).extensions) {
             if (extension.isReferenceTo(this, element)) return true
         }
+
+        val manager: PsiManager = PsiManagerEx.getInstanceEx(element.project)
+        if (element is PsiClass && manager.areElementsEquivalent(element, resolve())) return true
 
         return super.isReferenceTo(element)
     }
@@ -148,8 +154,10 @@ class KtSimpleNameReference(expression: KtSimpleNameExpression) : KtSimpleRefere
     }
 
     // By default reference binding is delayed
-    override fun bindToElement(element: PsiElement): PsiElement =
-        bindToElement(element, ShorteningMode.DELAYED_SHORTENING)
+    override fun bindToElement(element: PsiElement): PsiElement {
+        if (isReferenceTo(element)) return this.element
+        return bindToElement(element, ShorteningMode.DELAYED_SHORTENING)
+    }
 
     fun bindToElement(element: PsiElement, shorteningMode: ShorteningMode): PsiElement =
         element.getKotlinFqName()?.let { fqName -> bindToFqName(fqName, shorteningMode, element) } ?: expression
