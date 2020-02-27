@@ -5,25 +5,28 @@
 
 package org.jetbrains.kotlin.fir.scopes
 
+import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassifierSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 import org.jetbrains.kotlin.name.Name
 
+typealias ScopeProcessor<S> = (S) -> Unit
+
 abstract class FirScope {
     open fun processClassifiersByName(
         name: Name,
-        processor: (FirClassifierSymbol<*>) -> Unit
+        processor: ScopeProcessor<FirClassifierSymbol<*>>
     ) {}
 
     open fun processFunctionsByName(
         name: Name,
-        processor: (FirFunctionSymbol<*>) -> Unit
+        processor: ScopeProcessor<FirFunctionSymbol<*>>
     ) {}
 
     open fun processPropertiesByName(
         name: Name,
-        processor: (FirVariableSymbol<*>) -> Unit
+        processor: ScopeProcessor<FirVariableSymbol<*>>
     ) {}
 }
 

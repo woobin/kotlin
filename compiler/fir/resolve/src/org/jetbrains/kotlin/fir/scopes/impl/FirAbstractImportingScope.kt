@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.calls.TowerScopeLevel
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.scopes.FirScope
+import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
 import org.jetbrains.kotlin.fir.scopes.unsubstitutedScope
 import org.jetbrains.kotlin.fir.symbols.CallableId
 import org.jetbrains.kotlin.fir.symbols.impl.*
@@ -81,14 +82,14 @@ abstract class FirAbstractImportingScope(
         processor: (FirCallableSymbol<*>) -> Unit
     )
 
-    final override fun processFunctionsByName(name: Name, processor: (FirFunctionSymbol<*>) -> Unit) {
+    final override fun processFunctionsByName(name: Name, processor: ScopeProcessor<FirFunctionSymbol<*>>) {
         return processCallables(
             name,
             TowerScopeLevel.Token.Functions
         ) { if (it is FirFunctionSymbol<*>) processor(it) }
     }
 
-    final override fun processPropertiesByName(name: Name, processor: (FirVariableSymbol<*>) -> Unit) {
+    final override fun processPropertiesByName(name: Name, processor: ScopeProcessor<FirVariableSymbol<*>>) {
         return processCallables(
             name,
             TowerScopeLevel.Token.Properties

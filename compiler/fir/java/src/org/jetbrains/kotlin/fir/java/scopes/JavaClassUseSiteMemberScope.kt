@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.fir.java.JavaTypeParameterStack
 import org.jetbrains.kotlin.fir.java.declarations.*
 import org.jetbrains.kotlin.fir.resolve.calls.FirSyntheticPropertiesScope
 import org.jetbrains.kotlin.fir.scopes.FirScope
+import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
 import org.jetbrains.kotlin.fir.scopes.impl.AbstractFirUseSiteMemberScope
 import org.jetbrains.kotlin.fir.symbols.CallableId
 import org.jetbrains.kotlin.fir.symbols.impl.*
@@ -82,7 +83,7 @@ class JavaClassUseSiteMemberScope(
         propertyName: Name,
         getterNames: List<Name>,
         setterName: Name?,
-        processor: (FirVariableSymbol<*>) -> Unit
+        processor: ScopeProcessor<FirVariableSymbol<*>>
     ) {
         val overrideCandidates = mutableSetOf<FirCallableSymbol<*>>()
         val klass = symbol.fir
@@ -143,7 +144,7 @@ class JavaClassUseSiteMemberScope(
         }
     }
 
-    override fun processPropertiesByName(name: Name, processor: (FirVariableSymbol<*>) -> Unit) {
+    override fun processPropertiesByName(name: Name, processor: ScopeProcessor<FirVariableSymbol<*>>) {
         // Do not generate accessors at all?
         if (name.isSpecial) {
             return processAccessorFunctionsAndPropertiesByName(name, emptyList(), null, processor)

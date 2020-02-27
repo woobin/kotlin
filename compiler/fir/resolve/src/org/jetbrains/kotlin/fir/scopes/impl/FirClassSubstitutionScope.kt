@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.resolve.transformers.ReturnTypeCalculator
 import org.jetbrains.kotlin.fir.resolve.transformers.ReturnTypeCalculatorForFullBodyResolve
 import org.jetbrains.kotlin.fir.scopes.FirScope
+import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
@@ -46,7 +47,7 @@ class FirClassSubstitutionScope(
         skipPrivateMembers: Boolean
     ) : this(session, useSiteMemberScope, scopeSession, substitutorByMap(substitution), skipPrivateMembers)
 
-    override fun processFunctionsByName(name: Name, processor: (FirFunctionSymbol<*>) -> Unit) {
+    override fun processFunctionsByName(name: Name, processor: ScopeProcessor<FirFunctionSymbol<*>>) {
         useSiteMemberScope.processFunctionsByName(name) process@{ original ->
 
             val function = fakeOverrideFunctions.getOrPut(original) { createFakeOverrideFunction(original) }
@@ -57,7 +58,7 @@ class FirClassSubstitutionScope(
         return super.processFunctionsByName(name, processor)
     }
 
-    override fun processPropertiesByName(name: Name, processor: (FirVariableSymbol<*>) -> Unit) {
+    override fun processPropertiesByName(name: Name, processor: ScopeProcessor<FirVariableSymbol<*>>) {
         return useSiteMemberScope.processPropertiesByName(name) process@{ original ->
             when (original) {
                 is FirPropertySymbol -> {
@@ -79,7 +80,7 @@ class FirClassSubstitutionScope(
         }
     }
 
-    override fun processClassifiersByName(name: Name, processor: (FirClassifierSymbol<*>) -> Unit) {
+    override fun processClassifiersByName(name: Name, processor: ScopeProcessor<FirClassifierSymbol<*>>) {
         useSiteMemberScope.processClassifiersByName(name, processor)
     }
 

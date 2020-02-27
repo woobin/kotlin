@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.fir.scopes.impl
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.resolve.FirSymbolProvider
 import org.jetbrains.kotlin.fir.scopes.FirScope
+import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
@@ -23,7 +24,7 @@ class FirPackageMemberScope(val fqName: FqName, val session: FirSession) : FirSc
 
     override fun processClassifiersByName(
         name: Name,
-        processor: (FirClassifierSymbol<*>) -> Unit
+        processor: ScopeProcessor<FirClassifierSymbol<*>>
     ) {
         if (name.asString().isEmpty()) return
 
@@ -38,7 +39,7 @@ class FirPackageMemberScope(val fqName: FqName, val session: FirSession) : FirSc
         }
     }
 
-    override fun processFunctionsByName(name: Name, processor: (FirFunctionSymbol<*>) -> Unit) {
+    override fun processFunctionsByName(name: Name, processor: ScopeProcessor<FirFunctionSymbol<*>>) {
         val symbols = callableCache.getOrPut(name) {
             symbolProvider.getTopLevelCallableSymbols(fqName, name)
         }
@@ -49,7 +50,7 @@ class FirPackageMemberScope(val fqName: FqName, val session: FirSession) : FirSc
         }
     }
 
-    override fun processPropertiesByName(name: Name, processor: (FirVariableSymbol<*>) -> Unit) {
+    override fun processPropertiesByName(name: Name, processor: ScopeProcessor<FirVariableSymbol<*>>) {
         val symbols = callableCache.getOrPut(name) {
             symbolProvider.getTopLevelCallableSymbols(fqName, name)
         }

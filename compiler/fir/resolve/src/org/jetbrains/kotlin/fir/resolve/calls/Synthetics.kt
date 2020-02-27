@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.fir.declarations.isStatic
 import org.jetbrains.kotlin.fir.declarations.synthetic.FirSyntheticProperty
 import org.jetbrains.kotlin.fir.declarations.synthetic.buildSyntheticProperty
 import org.jetbrains.kotlin.fir.scopes.FirScope
+import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
 import org.jetbrains.kotlin.fir.symbols.CallableId
 import org.jetbrains.kotlin.fir.symbols.StandardClassIds
 import org.jetbrains.kotlin.fir.symbols.SyntheticSymbol
@@ -42,7 +43,7 @@ class FirSyntheticPropertiesScope(
         propertyName: Name,
         getterName: Name,
         getterSymbol: FirFunctionSymbol<*>,
-        processor: (FirVariableSymbol<*>) -> Unit
+        processor: ScopeProcessor<FirVariableSymbol<*>>
     ) {
         val getter = getterSymbol.fir as? FirSimpleFunction ?: return
 
@@ -79,7 +80,7 @@ class FirSyntheticPropertiesScope(
         processor(property.symbol)
     }
 
-    override fun processPropertiesByName(name: Name, processor: (FirVariableSymbol<*>) -> Unit) {
+    override fun processPropertiesByName(name: Name, processor: ScopeProcessor<FirVariableSymbol<*>>) {
         val getterNames = possibleGetterNamesByPropertyName(name)
         for (getterName in getterNames) {
             baseScope.processFunctionsByName(getterName) {

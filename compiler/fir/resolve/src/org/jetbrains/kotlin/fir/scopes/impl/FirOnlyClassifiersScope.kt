@@ -6,11 +6,12 @@
 package org.jetbrains.kotlin.fir.scopes.impl
 
 import org.jetbrains.kotlin.fir.scopes.FirScope
+import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassifierSymbol
 import org.jetbrains.kotlin.name.Name
 
 class FirOnlyClassifiersScope(val delegate: FirScope) : FirScope() {
-    override fun processClassifiersByName(name: Name, processor: (FirClassifierSymbol<*>) -> Unit) {
+    override fun processClassifiersByName(name: Name, processor: ScopeProcessor<FirClassifierSymbol<*>>) {
         return delegate.processClassifiersByName(name, processor)
     }
 }

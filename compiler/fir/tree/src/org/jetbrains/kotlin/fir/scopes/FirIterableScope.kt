@@ -15,7 +15,7 @@ abstract class FirIterableScope : FirScope() {
 
     override fun processClassifiersByName(
         name: Name,
-        processor: (FirClassifierSymbol<*>) -> Unit
+        processor: ScopeProcessor<FirClassifierSymbol<*>>
     ) {
         for (scope in scopes) {
             scope.processClassifiersByName(name, processor)
@@ -37,11 +37,11 @@ abstract class FirIterableScope : FirScope() {
         }
     }
 
-    override fun processFunctionsByName(name: Name, processor: (FirFunctionSymbol<*>) -> Unit) {
+    override fun processFunctionsByName(name: Name, processor: ScopeProcessor<FirFunctionSymbol<*>>) {
         return processComposite(FirScope::processFunctionsByName, name, processor)
     }
 
-    override fun processPropertiesByName(name: Name, processor: (FirVariableSymbol<*>) -> Unit) {
+    override fun processPropertiesByName(name: Name, processor: ScopeProcessor<FirVariableSymbol<*>>) {
         return processComposite(FirScope::processPropertiesByName, name, processor)
     }
 }

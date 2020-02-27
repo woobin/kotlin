@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.fir.declarations.impl.FirValueParameterImpl
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.scopes.FirOverrideChecker
 import org.jetbrains.kotlin.fir.scopes.FirScope
+import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.name.Name
 
@@ -29,7 +30,7 @@ abstract class AbstractFirUseSiteMemberScope(
 
     private val functions = hashMapOf<Name, Collection<FirFunctionSymbol<*>>>()
 
-    override fun processFunctionsByName(name: Name, processor: (FirFunctionSymbol<*>) -> Unit) {
+    override fun processFunctionsByName(name: Name, processor: ScopeProcessor<FirFunctionSymbol<*>>) {
         functions.getOrPut(name) {
             doProcessFunctions(name)
         }.forEach {
@@ -121,7 +122,7 @@ abstract class AbstractFirUseSiteMemberScope(
 
     override fun processClassifiersByName(
         name: Name,
-        processor: (FirClassifierSymbol<*>) -> Unit
+        processor: ScopeProcessor<FirClassifierSymbol<*>>
     ) {
         declaredMemberScope.processClassifiersByName(name, processor)
         superTypesScope.processClassifiersByName(name, processor)

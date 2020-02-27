@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.scopes.FirScope
+import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
 import org.jetbrains.kotlin.fir.scopes.impl.FirClassSubstitutionScope
 import org.jetbrains.kotlin.fir.scopes.impl.withReplacedConeType
 import org.jetbrains.kotlin.fir.scopes.unsubstitutedScope
@@ -78,7 +79,7 @@ private fun finalExpansionName(symbol: FirTypeAliasSymbol, session: FirSession):
 
 private fun processSyntheticConstructors(
     matchedSymbol: FirClassLikeSymbol<*>?,
-    processor: (FirFunctionSymbol<*>) -> Unit,
+    processor: ScopeProcessor<FirFunctionSymbol<*>>,
     bodyResolveComponents: BodyResolveComponents
 ) {
     val samConstructor = matchedSymbol.findSAMConstructor(bodyResolveComponents)
@@ -127,7 +128,7 @@ private fun FirTypeAliasSymbol.findSAMConstructorForTypeAlias(
 
 private fun processConstructors(
     matchedSymbol: FirClassLikeSymbol<*>?,
-    processor: (FirFunctionSymbol<*>) -> Unit,
+    processor: ScopeProcessor<FirFunctionSymbol<*>>,
     session: FirSession,
     scopeSession: ScopeSession,
     noInner: Boolean
@@ -172,7 +173,7 @@ private class TypeAliasConstructorsSubstitutingScope(
     private val typeAliasConstructorsSubstitutor: TypeAliasConstructorsSubstitutor<FirConstructor>,
     private val delegatingScope: FirScope
 ) : FirScope() {
-    override fun processFunctionsByName(name: Name, processor: (FirFunctionSymbol<*>) -> Unit) {
+    override fun processFunctionsByName(name: Name, processor: ScopeProcessor<FirFunctionSymbol<*>>) {
         delegatingScope.processFunctionsByName(name) {
             val toProcess = if (it is FirConstructorSymbol) {
                 typeAliasConstructorsSubstitutor.substitute(it.fir).symbol
