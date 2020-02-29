@@ -73,14 +73,11 @@ open class KotlinPsiChecker : Annotator, HighlightRangeExtension {
         holder: AnnotationHolder
     ) {
         // println("Just started: " + (System.currentTimeMillis())) //todo: remove me
-        val f = holder::class.java.getDeclaredMethod("queueToUpdateIncrementally")
-        f.isAccessible = true
 
         val analysisResult = file.analyzeWithAllCompilerChecks(
             { diagnostic ->
                 annotateElement(diagnostic.psiElement, holder, setOf(diagnostic), true)
                 // println("Diagnostic: " + (System.currentTimeMillis())) //todo: remove me
-                f.invoke(holder)
             })
         if (analysisResult.isError()) {
             throw ProcessCanceledException(analysisResult.error)
