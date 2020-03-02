@@ -55,6 +55,7 @@ class ModulesEditorToolbarDecorator(
                     ModuleKind.multiplatform -> " Target"
                     ModuleKind.singleplatformJvm -> " Module"
                     ModuleKind.singleplatformJs -> " JS Module"
+                    ModuleKind.singleplatformAndroid -> " Android Module"
                     ModuleKind.target -> ""
                     null -> ""
                 }
@@ -109,5 +110,6 @@ private val Module.kindText
         ModuleKind.multiplatform -> "Module"
         ModuleKind.singleplatformJvm -> "Module"
         ModuleKind.singleplatformJs -> "Module"
+        ModuleKind.singleplatformAndroid -> "Module"
         ModuleKind.target -> "Target"
     }
