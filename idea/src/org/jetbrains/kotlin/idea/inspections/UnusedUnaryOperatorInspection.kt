@@ -7,13 +7,11 @@ package org.jetbrains.kotlin.idea.inspections
 
 import com.intellij.codeInspection.LocalQuickFix
 import com.intellij.codeInspection.ProblemDescriptor
-import com.intellij.codeInspection.ProblemHighlightType
 import com.intellij.codeInspection.ProblemsHolder
 import com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
 import org.jetbrains.kotlin.idea.caches.resolve.analyze
-import org.jetbrains.kotlin.idea.util.textRangeIn
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtPrefixExpression
 import org.jetbrains.kotlin.psi.prefixExpressionVisitor
@@ -32,13 +30,7 @@ class UnusedUnaryOperatorInspection : AbstractKotlinInspection() {
         val operatorDescriptor = prefix.operationReference.getResolvedCall(context)?.resultingDescriptor as? DeclarationDescriptor ?: return
         if (!KotlinBuiltIns.isUnderKotlinPackage(operatorDescriptor)) return
 
-        holder.registerProblem(
-            prefix,
-            "Unused unary operator",
-            ProblemHighlightType.LIKE_UNUSED_SYMBOL,
-            prefix.operationReference.textRangeIn(prefix),
-            RemoveUnaryOperatorFix()
-        )
+        holder.registerProblem(prefix, "Unused unary operator", RemoveUnaryOperatorFix())
     })
 
     private class RemoveUnaryOperatorFix : LocalQuickFix {
