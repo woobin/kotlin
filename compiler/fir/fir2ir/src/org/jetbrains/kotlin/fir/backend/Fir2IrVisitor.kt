@@ -193,7 +193,7 @@ class Fir2IrVisitor(
         for (name in superTypesCallableNames) {
             if (name in processedCallableNames) continue
             processedCallableNames += name
-            useSiteMemberScope.processFunctionsByName(name) { functionSymbol ->
+            useSiteMemberScope.processFunctionsByName(name) { (functionSymbol) ->
                 if (functionSymbol is FirNamedFunctionSymbol) {
                     val originalFunction = functionSymbol.fir
                     val origin = IrDeclarationOrigin.FAKE_OVERRIDE
@@ -221,7 +221,7 @@ class Fir2IrVisitor(
                     }
                 }
             }
-            useSiteMemberScope.processPropertiesByName(name) { propertySymbol ->
+            useSiteMemberScope.processPropertiesByName(name) { (propertySymbol) ->
                 if (propertySymbol is FirPropertySymbol) {
                     val originalProperty = propertySymbol.fir
                     val origin = IrDeclarationOrigin.FAKE_OVERRIDE

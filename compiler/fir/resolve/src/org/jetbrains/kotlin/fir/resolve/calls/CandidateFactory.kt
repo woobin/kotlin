@@ -6,12 +6,10 @@
 package org.jetbrains.kotlin.fir.resolve.calls
 
 import org.jetbrains.kotlin.fir.expressions.*
-import org.jetbrains.kotlin.fir.expressions.builder.buildExpressionWithSmartcast
 import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
-import org.jetbrains.kotlin.fir.resolvedTypeFromPrototype
 import org.jetbrains.kotlin.fir.returnExpressions
+import org.jetbrains.kotlin.fir.scopes.ScopeElement
 import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
-import org.jetbrains.kotlin.fir.types.coneTypeUnsafe
 import org.jetbrains.kotlin.resolve.calls.components.PostponedArgumentsAnalyzer
 import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintStorage
 import org.jetbrains.kotlin.resolve.calls.tasks.ExplicitReceiverKind
@@ -43,14 +41,14 @@ class CandidateFactory private constructor(
     }
 
     fun createCandidate(
-        symbol: AbstractFirBasedSymbol<*>,
+        element: ScopeElement<AbstractFirBasedSymbol<*>>,
         explicitReceiverKind: ExplicitReceiverKind,
         dispatchReceiverValue: ReceiverValue? = null,
         implicitExtensionReceiverValue: ImplicitReceiverValue<*>? = null,
         builtInExtensionFunctionReceiverValue: ReceiverValue? = null
     ): Candidate {
         return Candidate(
-            symbol, dispatchReceiverValue, implicitExtensionReceiverValue,
+            element.symbol, element.substitutor, dispatchReceiverValue, implicitExtensionReceiverValue,
             explicitReceiverKind, bodyResolveComponents, baseSystem,
             builtInExtensionFunctionReceiverValue?.receiverExpression?.let {
                 callInfo.withReceiverAsArgument(it)

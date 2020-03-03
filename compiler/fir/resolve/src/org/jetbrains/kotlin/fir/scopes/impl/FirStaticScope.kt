@@ -28,7 +28,7 @@ class FirStaticScope(private val delegateScope: FirScope) : FirScope() {
         processor: ScopeProcessor<FirFunctionSymbol<*>>
     ) {
         delegateScope.processFunctionsByName(name) {
-            if ((it.fir as? FirSimpleFunction)?.isStatic == true) {
+            if ((it.symbol.fir as? FirSimpleFunction)?.isStatic == true) {
                 processor(it)
             }
         }
@@ -39,7 +39,7 @@ class FirStaticScope(private val delegateScope: FirScope) : FirScope() {
         processor: ScopeProcessor<FirVariableSymbol<*>>
     ) {
         delegateScope.processPropertiesByName(name) {
-            if ((it.fir as? FirCallableMemberDeclaration<*>)?.isStatic == true) {
+            if ((it.symbol.fir as? FirCallableMemberDeclaration<*>)?.isStatic == true) {
                 processor(it)
             }
         }

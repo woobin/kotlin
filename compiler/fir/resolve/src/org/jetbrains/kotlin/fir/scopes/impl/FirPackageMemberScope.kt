@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.resolve.FirSymbolProvider
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
+import org.jetbrains.kotlin.fir.scopes.noSubstitution
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
@@ -35,7 +36,7 @@ class FirPackageMemberScope(val fqName: FqName, val session: FirSession) : FirSc
         }
 
         if (symbol != null) {
-            processor(symbol)
+            processor.noSubstitution(symbol)
         }
     }
 
@@ -45,7 +46,7 @@ class FirPackageMemberScope(val fqName: FqName, val session: FirSession) : FirSc
         }
         for (symbol in symbols) {
             if (symbol is FirFunctionSymbol<*>) {
-                processor(symbol)
+                processor.noSubstitution(symbol)
             }
         }
     }
@@ -56,7 +57,7 @@ class FirPackageMemberScope(val fqName: FqName, val session: FirSession) : FirSc
         }
         for (symbol in symbols) {
             if (symbol is FirPropertySymbol) {
-                processor(symbol)
+                processor.noSubstitution(symbol)
             }
         }
     }

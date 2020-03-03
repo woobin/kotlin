@@ -172,7 +172,7 @@ abstract class AbstractFirMultiModuleResolveTest : AbstractMultiModuleTest() {
                                     renderer.newLine()
                                     renderedDeclarations += declaration
                                 } else {
-                                    enhancementScope.processFunctionsByName(declaration.name) { symbol ->
+                                    enhancementScope.processFunctionsByName(declaration.name) { (symbol) ->
                                         val enhanced = symbol.fir
                                         if (enhanced !in renderedDeclarations) {
                                             enhanced.accept(renderer, null)

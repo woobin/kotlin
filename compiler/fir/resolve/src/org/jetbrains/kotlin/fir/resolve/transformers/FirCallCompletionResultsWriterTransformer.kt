@@ -91,7 +91,7 @@ class FirCallCompletionResultsWriterTransformer(
             ) as ConeKotlinType? ?: substitutedType
         }
 
-        return withReplacedConeType(finalType)
+        return withReplacedConeType(finalType ?: initialType)
     }
 
     override fun transformCallableReferenceAccess(

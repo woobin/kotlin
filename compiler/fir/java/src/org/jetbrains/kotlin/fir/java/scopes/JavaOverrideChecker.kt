@@ -47,27 +47,45 @@ class JavaOverrideChecker internal constructor(
         }
     }
 
-    override fun isEqualTypes(candidateTypeRef: FirTypeRef, baseTypeRef: FirTypeRef, substitutor: ConeSubstitutor) =
+    override fun isEqualTypes(
+        candidateTypeRef: FirTypeRef,
+        overrideSubstitutor: ConeSubstitutor,
+        baseTypeRef: FirTypeRef,
+        baseSubstitutor: ConeSubstitutor,
+        substitutor: ConeSubstitutor
+    ) =
         isEqualTypes(
-            candidateTypeRef.toConeKotlinTypeProbablyFlexible(session, javaTypeParameterStack),
-            baseTypeRef.toConeKotlinTypeProbablyFlexible(session, javaTypeParameterStack),
+            candidateTypeRef.toConeKotlinTypeProbablyFlexible(session, javaTypeParameterStack).let(overrideSubstitutor::substituteOrSelf),
+            baseTypeRef.toConeKotlinTypeProbablyFlexible(session, javaTypeParameterStack).let(baseSubstitutor::substituteOrSelf),
             substitutor
         )
 
-    override fun isOverriddenFunction(overrideCandidate: FirSimpleFunction, baseDeclaration: FirSimpleFunction): Boolean {
+    override fun isOverriddenFunction(
+        overrideCandidate: FirSimpleFunction,
+        overrideSubstitutor: ConeSubstitutor,
+        baseDeclaration: FirSimpleFunction,
+        baseSubstitutor: ConeSubstitutor
+    ): Boolean {
         // NB: overrideCandidate is from Java and has no receiver
         val receiverTypeRef = baseDeclaration.receiverTypeRef
         val baseParameterTypes = listOfNotNull(receiverTypeRef) + baseDeclaration.valueParameters.map { it.returnTypeRef }
 
         if (overrideCandidate.valueParameters.size != baseParameterTypes.size) return false
-        val substitutor = getSubstitutorIfTypeParametersAreCompatible(overrideCandidate, baseDeclaration) ?: return false
+        val substitutor = getSubstitutorIfTypeParametersAreCompatible(
+            overrideCandidate, overrideSubstitutor, baseDeclaration, baseSubstitutor
+        ) ?: return false
 
         return overrideCandidate.valueParameters.zip(baseParameterTypes).all { (paramFromJava, baseType) ->
-            isEqualTypes(paramFromJava.returnTypeRef, baseType, substitutor)
+            isEqualTypes(paramFromJava.returnTypeRef, overrideSubstitutor, baseType, baseSubstitutor, substitutor)
         }
     }
 
-    override fun isOverriddenProperty(overrideCandidate: FirCallableMemberDeclaration<*>, baseDeclaration: FirProperty): Boolean {
+    override fun isOverriddenProperty(
+        overrideCandidate: FirCallableMemberDeclaration<*>,
+        overrideSubstitutor: ConeSubstitutor,
+        baseDeclaration: FirProperty,
+        baseSubstitutor: ConeSubstitutor
+    ): Boolean {
         if (baseDeclaration.modality == Modality.FINAL) return false
         val receiverTypeRef = baseDeclaration.receiverTypeRef
         return when (overrideCandidate) {
@@ -77,7 +95,11 @@ class JavaOverrideChecker internal constructor(
                     return overrideCandidate.valueParameters.isEmpty()
                 } else {
                     if (overrideCandidate.valueParameters.size != 1) return false
-                    return isEqualTypes(receiverTypeRef, overrideCandidate.valueParameters.single().returnTypeRef, ConeSubstitutor.Empty)
+                    return isEqualTypes(
+                        receiverTypeRef, baseSubstitutor,
+                        overrideCandidate.valueParameters.single().returnTypeRef, overrideSubstitutor,
+                        ConeSubstitutor.Empty
+                    )
                 }
             }
             is FirProperty -> {
@@ -85,7 +107,11 @@ class JavaOverrideChecker internal constructor(
                 return when {
                     receiverTypeRef == null -> overrideReceiverTypeRef == null
                     overrideReceiverTypeRef == null -> false
-                    else -> isEqualTypes(receiverTypeRef, overrideReceiverTypeRef, ConeSubstitutor.Empty)
+                    else -> isEqualTypes(
+                        receiverTypeRef, baseSubstitutor,
+                        overrideReceiverTypeRef, overrideSubstitutor,
+                        ConeSubstitutor.Empty
+                    )
                 }
             }
             else -> false

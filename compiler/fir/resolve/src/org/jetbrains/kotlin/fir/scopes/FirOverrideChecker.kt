@@ -8,15 +8,20 @@ package org.jetbrains.kotlin.fir.scopes
 import org.jetbrains.kotlin.fir.declarations.FirCallableMemberDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
+import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 
 interface FirOverrideChecker {
     fun isOverriddenFunction(
         overrideCandidate: FirSimpleFunction,
-        baseDeclaration: FirSimpleFunction
+        overrideSubstitutor: ConeSubstitutor,
+        baseDeclaration: FirSimpleFunction,
+        baseSubstitutor: ConeSubstitutor
     ): Boolean
 
     fun isOverriddenProperty(
         overrideCandidate: FirCallableMemberDeclaration<*>, // NB: in Java it can be a function which overrides accessor
-        baseDeclaration: FirProperty
+        overrideSubstitutor: ConeSubstitutor,
+        baseDeclaration: FirProperty,
+        baseSubstitutor: ConeSubstitutor
     ): Boolean
 }

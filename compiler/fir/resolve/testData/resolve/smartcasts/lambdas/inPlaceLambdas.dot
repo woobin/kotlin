@@ -22,7 +22,7 @@ digraph inPlaceLambdas_kt {
     subgraph cluster_2 {
         color=red
         4 [label="Enter function run" style="filled" fillcolor=red];
-        5 [label="Function call: R|<local>/block|.R|FakeOverride<kotlin/Function0.invoke: R|kotlin/Unit|>|()"];
+        5 [label="Function call: R|<local>/block|.R|kotlin/Function0.invoke|()"];
         6 [label="Exit function run" style="filled" fillcolor=red];
     }
 

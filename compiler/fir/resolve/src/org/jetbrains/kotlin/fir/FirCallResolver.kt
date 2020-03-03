@@ -327,7 +327,7 @@ class FirCallResolver(
         val candidates = mutableListOf<Candidate>()
 
         scope.processFunctionsByName(className) {
-            if (it is FirConstructorSymbol) {
+            if (it.symbol is FirConstructorSymbol) {
                 candidates += candidateFactory.createCandidate(it, ExplicitReceiverKind.NO_EXPLICIT_RECEIVER)
             }
         }
@@ -424,7 +424,7 @@ class FirCallResolver(
                     coneSymbol is FirVariableSymbol && (
                             coneSymbol !is FirPropertySymbol ||
                                     (coneSymbol.phasedFir() as FirMemberDeclaration).typeParameters.isEmpty()
-                            )
+                            ) && candidate.scopeSubstitutor == null
                     -> buildResolvedNamedReference {
                         this.source = source
                         this.name = name

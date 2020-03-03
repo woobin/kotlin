@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.scopes.FirOverrideChecker
 import org.jetbrains.kotlin.fir.scopes.FirScope
+import org.jetbrains.kotlin.fir.scopes.ScopeElement
 import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.ConeFlexibleType
@@ -53,18 +54,18 @@ class FirSuperTypeScope private constructor(
 
     private inline fun <D : FirCallableSymbol<*>> processCallablesByName(
         name: Name,
-        noinline processor: (D) -> Unit,
+        noinline processor: ScopeProcessor<D>,
         absentNames: MutableSet<Name>,
-        processCallables: FirScope.(Name, (D) -> Unit) -> Unit
+        processCallables: FirScope.(Name, ScopeProcessor<D>) -> Unit
     ): Boolean {
         if (name in absentNames) {
             return false
         }
 
         val membersByScope = scopes.mapNotNull { scope ->
-            val resultForScope = mutableListOf<D>()
+            val resultForScope = mutableListOf<ScopeElement<D>>()
             scope.processCallables(name) {
-                if (it !is FirConstructorSymbol) {
+                if (it.symbol !is FirConstructorSymbol) {
                     resultForScope.add(it)
                 }
             }
@@ -100,15 +101,15 @@ class FirSuperTypeScope private constructor(
     }
 
     private fun <D : FirCallableSymbol<*>> selectMostSpecificMember(
-        overridables: Collection<D>
-    ): D {
+        overridables: Collection<ScopeElement<D>>
+    ): ScopeElement<D> {
         require(overridables.isNotEmpty()) { "Should have at least one overridable descriptor" }
         if (overridables.size == 1) {
             return overridables.first()
         }
 
-        val candidates: MutableCollection<D> = ArrayList(2)
-        var transitivelyMostSpecific: D = overridables.first()
+        val candidates: MutableCollection<ScopeElement<D>> = ArrayList(2)
+        var transitivelyMostSpecific: ScopeElement<D> = overridables.first()
 
         for (candidate in overridables) {
             if (overridables.all { isMoreSpecific(candidate, it) }) {
@@ -129,7 +130,7 @@ class FirSuperTypeScope private constructor(
             }
             else -> {
                 candidates.firstOrNull {
-                    val type = it.fir.returnTypeRef.coneTypeSafe<ConeKotlinType>()
+                    val type = it.symbol.fir.returnTypeRef.coneTypeSafe<ConeKotlinType>()?.let(it.substitutorOrEmpty::substituteOrSelf)
                     type != null && type !is ConeFlexibleType
                 }?.let { return it }
                 return candidates.first()
@@ -138,17 +139,22 @@ class FirSuperTypeScope private constructor(
     }
 
     private fun isMoreSpecific(
-        a: FirCallableSymbol<*>,
-        b: FirCallableSymbol<*>
+        a: ScopeElement<FirCallableSymbol<*>>,
+        b: ScopeElement<FirCallableSymbol<*>>
     ): Boolean {
-        val aFir = a.fir
-        val bFir = b.fir
+        val aFir = a.symbol.fir
+        val bFir = b.symbol.fir
         if (aFir !is FirCallableMemberDeclaration<*> || bFir !is FirCallableMemberDeclaration<*>) return false
 
         val substitutor = buildSubstitutorForOverridesCheck(aFir, bFir) ?: return false
 
-        val aReturnType = a.fir.returnTypeRef.coneTypeSafe<ConeKotlinType>()?.let(substitutor::substituteOrSelf) ?: return false
-        val bReturnType = b.fir.returnTypeRef.coneTypeSafe<ConeKotlinType>() ?: return false
+        val aReturnType = aFir.returnTypeRef.coneTypeSafe<ConeKotlinType>()
+            ?.let(a.substitutorOrEmpty::substituteOrSelf)
+            ?.let(substitutor::substituteOrSelf)
+            ?: return false
+        val bReturnType = bFir.returnTypeRef.coneTypeSafe<ConeKotlinType>()
+            ?.let(b.substitutorOrEmpty::substituteOrSelf)
+            ?: return false
 
         if (aFir is FirSimpleFunction) {
             require(bFir is FirSimpleFunction) { "b is " + b.javaClass }
@@ -169,10 +175,10 @@ class FirSuperTypeScope private constructor(
     private fun isTypeMoreSpecific(a: ConeKotlinType, b: ConeKotlinType): Boolean =
         AbstractTypeChecker.isSubtypeOf(typeContext as AbstractTypeCheckerContext, a, b)
 
-    private fun <D : FirCallableSymbol<*>> findMemberWithMaxVisibility(members: Collection<D>): D {
+    private fun <D : FirCallableSymbol<*>> findMemberWithMaxVisibility(members: Collection<ScopeElement<D>>): ScopeElement<D> {
         assert(members.isNotEmpty())
 
-        var member: D? = null
+        var member: ScopeElement<D>? = null
         for (candidate in members) {
             if (member == null) {
                 member = candidate
@@ -180,8 +186,8 @@ class FirSuperTypeScope private constructor(
             }
 
             val result = Visibilities.compare(
-                (member.fir as FirCallableMemberDeclaration<*>).status.visibility,
-                (candidate.fir as FirCallableMemberDeclaration<*>).status.visibility
+                (member.symbol.fir as FirCallableMemberDeclaration<*>).status.visibility,
+                (candidate.symbol.fir as FirCallableMemberDeclaration<*>).status.visibility
             )
             if (result != null && result < 0) {
                 member = candidate
@@ -191,14 +197,14 @@ class FirSuperTypeScope private constructor(
     }
 
     private fun <D : FirCallableSymbol<*>> extractBothWaysOverridable(
-        overrider: D,
-        members: MutableCollection<D>
-    ): Collection<D> {
-        val result = mutableListOf<D>().apply { add(overrider) }
+        overrider: ScopeElement<D>,
+        members: MutableCollection<ScopeElement<D>>
+    ): Collection<ScopeElement<D>> {
+        val result = mutableListOf<ScopeElement<D>>().apply { add(overrider) }
 
         val iterator = members.iterator()
 
-        val overrideCandidate = overrider.fir as FirCallableMemberDeclaration<*>
+        val overrideCandidate = overrider.symbol.fir as FirCallableMemberDeclaration<*>
         while (iterator.hasNext()) {
             val next = iterator.next()
             if (next == overrider) {
@@ -206,7 +212,12 @@ class FirSuperTypeScope private constructor(
                 continue
             }
 
-            if (similarFunctionsOrBothProperties(overrideCandidate, next.fir as FirCallableMemberDeclaration<*>)) {
+            if (similarFunctionsOrBothProperties(
+                    overrideCandidate,
+                    overrider.substitutorOrEmpty,
+                    next.symbol.fir as FirCallableMemberDeclaration<*>,
+                    next.substitutorOrEmpty
+                )) {
                 result.add(next)
                 iterator.remove()
             }
@@ -225,8 +236,8 @@ class FirSuperTypeScope private constructor(
         for (scope in scopes) {
             scope.processClassifiersByName(name) {
                 empty = false
-                if (it !in accepted) {
-                    pending += it
+                if (it.symbol !in accepted) {
+                    pending += it.symbol
                     processor(it)
                 }
             }

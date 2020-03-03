@@ -63,8 +63,8 @@ fun FirSymbolProvider.getClassDeclaredCallableSymbols(classId: ClassId, name: Na
     val classSymbol = getClassLikeSymbolByFqName(classId) as? FirRegularClassSymbol ?: return emptyList()
     val declaredMemberScope = declaredMemberScope(classSymbol.fir)
     val result = mutableListOf<FirCallableSymbol<*>>()
-    declaredMemberScope.processFunctionsByName(name, result::add)
-    declaredMemberScope.processPropertiesByName(name, result::add)
+    declaredMemberScope.processFunctionsByName(name) { result.add(it.symbol) }
+    declaredMemberScope.processPropertiesByName(name) { result.add(it.symbol) }
 
     return result
 }

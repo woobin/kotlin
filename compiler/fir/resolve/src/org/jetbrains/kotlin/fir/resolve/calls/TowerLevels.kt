@@ -6,15 +6,22 @@
 package org.jetbrains.kotlin.fir.resolve.calls
 
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.FirCallableMemberDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirConstructor
+import org.jetbrains.kotlin.fir.declarations.isInner
+import org.jetbrains.kotlin.fir.declarations.isStatic
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
+import org.jetbrains.kotlin.fir.scopes.ScopeElement
 import org.jetbrains.kotlin.fir.scopes.impl.FirAbstractImportingScope
 import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.*
+import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.ConeNullability
 import org.jetbrains.kotlin.fir.types.withNullability
@@ -39,7 +46,7 @@ interface TowerScopeLevel {
 
     interface TowerScopeLevelProcessor<T : AbstractFirBasedSymbol<*>> {
         fun consumeCandidate(
-            symbol: T,
+            scopeElement: ScopeElement<T>,
             dispatchReceiverValue: ReceiverValue?,
             implicitExtensionReceiverValue: ImplicitReceiverValue<*>?,
             builtInExtensionFunctionReceiverValue: ReceiverValue? = null
@@ -71,11 +78,12 @@ class MemberScopeTowerLevel(
 ) : SessionBasedTowerLevel(session) {
     private fun <T : AbstractFirBasedSymbol<*>> processMembers(
         output: TowerScopeLevel.TowerScopeLevelProcessor<T>,
-        processScopeMembers: FirScope.(processor: (T) -> Unit) -> Unit
+        processScopeMembers: FirScope.(processor: (ScopeElement<T>) -> Unit) -> Unit
     ): ProcessorAction {
         var empty = true
         val scope = dispatchReceiver.scope(session, scopeSession) ?: return ProcessorAction.NONE
-        scope.processScopeMembers { candidate ->
+        scope.processScopeMembers { element ->
+            val candidate = element.symbol
             empty = false
             if (candidate is FirCallableSymbol<*> &&
                 (implicitExtensionInvokeMode || candidate.hasConsistentExtensionReceiver(extensionReceiver))
@@ -87,26 +95,26 @@ class MemberScopeTowerLevel(
                 val dispatchReceiverValue = NotNullableReceiverValue(dispatchReceiver)
                 if (implicitExtensionInvokeMode) {
                     output.consumeCandidate(
-                        candidate, dispatchReceiverValue,
+                        element, dispatchReceiverValue,
                         implicitExtensionReceiverValue = extensionReceiver as? ImplicitReceiverValue<*>
                     )
                     output.consumeCandidate(
-                        candidate, dispatchReceiverValue,
+                        element, dispatchReceiverValue,
                         implicitExtensionReceiverValue = null,
                         builtInExtensionFunctionReceiverValue = this.extensionReceiver
                     )
                 } else {
-                    output.consumeCandidate(candidate, dispatchReceiverValue, extensionReceiver as? ImplicitReceiverValue<*>)
+                    output.consumeCandidate(element, dispatchReceiverValue, extensionReceiver as? ImplicitReceiverValue<*>)
                 }
             } else if (candidate is FirClassLikeSymbol<*>) {
-                output.consumeCandidate(candidate, null, extensionReceiver as? ImplicitReceiverValue<*>)
+                output.consumeCandidate(element, null, extensionReceiver as? ImplicitReceiverValue<*>)
             }
         }
 
         val withSynthetic = FirSyntheticPropertiesScope(session, scope)
-        withSynthetic.processScopeMembers { symbol ->
+        withSynthetic.processScopeMembers { element ->
             empty = false
-            output.consumeCandidate(symbol, NotNullableReceiverValue(dispatchReceiver), extensionReceiver as? ImplicitReceiverValue<*>)
+            output.consumeCandidate(element, NotNullableReceiverValue(dispatchReceiver), extensionReceiver as? ImplicitReceiverValue<*>)
         }
         return if (empty) ProcessorAction.NONE else ProcessorAction.NEXT
     }
@@ -174,11 +182,11 @@ class ScopeTowerLevel(
         var empty = true
         @Suppress("UNCHECKED_CAST")
         when (token) {
-            TowerScopeLevel.Token.Properties -> scope.processPropertiesByName(name) { candidate ->
+            TowerScopeLevel.Token.Properties -> scope.processPropertiesByName(name) { candidateElement ->
                 empty = false
-                if (candidate.hasConsistentReceivers(extensionReceiver)) {
+                if (candidateElement.symbol.hasConsistentReceivers(extensionReceiver)) {
                     processor.consumeCandidate(
-                        candidate as T, dispatchReceiverValue = null,
+                        candidateElement as ScopeElement<T>, dispatchReceiverValue = null,
                         implicitExtensionReceiverValue = extensionReceiver as? ImplicitReceiverValue<*>
                     )
                 }
@@ -188,11 +196,11 @@ class ScopeTowerLevel(
                 session,
                 bodyResolveComponents,
                 noInnerConstructors = noInnerConstructors
-            ) { candidate ->
+            ) { candidateElement ->
                 empty = false
-                if (candidate.hasConsistentReceivers(extensionReceiver)) {
+                if (candidateElement.symbol.hasConsistentReceivers(extensionReceiver)) {
                     processor.consumeCandidate(
-                        candidate as T, dispatchReceiverValue = null,
+                        candidateElement as ScopeElement<T>, dispatchReceiverValue = null,
                         implicitExtensionReceiverValue = extensionReceiver as? ImplicitReceiverValue<*>
                     )
                 }
@@ -200,7 +208,7 @@ class ScopeTowerLevel(
             TowerScopeLevel.Token.Objects -> scope.processClassifiersByName(name) {
                 empty = false
                 processor.consumeCandidate(
-                    it as T, dispatchReceiverValue = null,
+                    it as ScopeElement<T>, dispatchReceiverValue = null,
                     implicitExtensionReceiverValue = null
                 )
             }

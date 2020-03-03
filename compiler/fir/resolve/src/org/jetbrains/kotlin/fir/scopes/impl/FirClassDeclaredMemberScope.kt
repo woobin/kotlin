@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.resolve.FirSymbolProvider
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
+import org.jetbrains.kotlin.fir.scopes.noSubstitution
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassifierSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
@@ -49,7 +50,7 @@ class FirClassDeclaredMemberScope(
         val symbols = callablesIndex[name] ?: emptyList()
         for (symbol in symbols) {
             if (symbol is FirFunctionSymbol<*>) {
-                processor(symbol)
+                processor.noSubstitution(symbol)
             }
         }
     }
@@ -58,7 +59,7 @@ class FirClassDeclaredMemberScope(
         val symbols = callablesIndex[name] ?: emptyList()
         for (symbol in symbols) {
             if (symbol is FirVariableSymbol) {
-                processor(symbol)
+                processor.noSubstitution(symbol)
             }
         }
     }

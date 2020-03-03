@@ -57,7 +57,7 @@ class IntegerLiteralTypeApproximationTransformer(
         val receiverClassId = functionCall.dispatchReceiver.typeRef.coneTypeUnsafe<ConeClassLikeType>().lookupTag.classId
         val scope = declaredMemberScope((symbolProvider.getClassLikeSymbolByFqName(receiverClassId) as FirRegularClassSymbol).fir)
         var resultSymbol: FirFunctionSymbol<*>? = null
-        scope.processFunctionsByName(operator.name) { symbol ->
+        scope.processFunctionsByName(operator.name) { (symbol) ->
             if (resultSymbol != null) {
                 return@processFunctionsByName
             }

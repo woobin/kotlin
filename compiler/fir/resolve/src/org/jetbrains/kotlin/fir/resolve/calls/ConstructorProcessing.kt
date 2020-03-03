@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
 import org.jetbrains.kotlin.fir.scopes.impl.FirClassSubstitutionScope
 import org.jetbrains.kotlin.fir.scopes.impl.withReplacedConeType
+import org.jetbrains.kotlin.fir.scopes.noSubstitution
 import org.jetbrains.kotlin.fir.scopes.unsubstitutedScope
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
@@ -30,7 +31,7 @@ internal fun FirScope.processFunctionsAndConstructorsByName(
     session: FirSession,
     bodyResolveComponents: BodyResolveComponents,
     noInnerConstructors: Boolean = false,
-    processor: (FirCallableSymbol<*>) -> Unit
+    processor: ScopeProcessor<FirCallableSymbol<*>>
 ) {
     // TODO: Handle case with two or more accessible classifiers
     val matchedClassSymbol = getFirstClassifierOrNull(name) as? FirClassLikeSymbol<*>
@@ -50,7 +51,7 @@ internal fun FirScope.processFunctionsAndConstructorsByName(
     )
 
     processFunctionsByName(name) {
-        if (it !is FirConstructorSymbol) {
+        if (it.symbol !is FirConstructorSymbol) {
             processor(it)
         }
     }
@@ -60,7 +61,7 @@ private fun FirScope.getFirstClassifierOrNull(name: Name): FirClassifierSymbol<*
     var result: FirClassifierSymbol<*>? = null
     processClassifiersByName(name) {
         if (result == null) {
-            result = it
+            result = it.symbol
         }
     }
 
@@ -84,7 +85,7 @@ private fun processSyntheticConstructors(
 ) {
     val samConstructor = matchedSymbol.findSAMConstructor(bodyResolveComponents)
     if (samConstructor != null) {
-        processor(samConstructor.symbol)
+        processor.noSubstitution(samConstructor.symbol)
     }
 }
 
@@ -157,7 +158,7 @@ private fun processConstructors(
 
             //TODO: why don't we use declared member scope at this point?
             scope?.processFunctionsByName(constructorName) {
-                if (!noInner || (it as? FirConstructorSymbol)?.fir?.isInner != true) {
+                if (!noInner || (it.symbol as? FirConstructorSymbol)?.fir?.isInner != true) {
                     processor(it)
                 }
             }
@@ -175,13 +176,14 @@ private class TypeAliasConstructorsSubstitutingScope(
 ) : FirScope() {
     override fun processFunctionsByName(name: Name, processor: ScopeProcessor<FirFunctionSymbol<*>>) {
         delegatingScope.processFunctionsByName(name) {
-            val toProcess = if (it is FirConstructorSymbol) {
-                typeAliasConstructorsSubstitutor.substitute(it.fir).symbol
+            val symbol = it.symbol
+            val toProcess = if (symbol is FirConstructorSymbol) {
+                typeAliasConstructorsSubstitutor.substitute(symbol.fir).symbol
             } else {
-                it
+                symbol
             }
 
-            processor(toProcess)
+            processor.noSubstitution(toProcess)
         }
     }
 }
@@ -191,7 +193,7 @@ private typealias ConstructorCopyFactory<F> =
 
 private class TypeAliasConstructorsSubstitutor<F : FirFunction<F>>(
     private val typeAliasSymbol: FirTypeAliasSymbol,
-    private val substitutor: ConeSubstitutor,
+    val substitutor: ConeSubstitutor,
     private val copyFactory: ConstructorCopyFactory<F>
 ) {
     fun substitute(baseFunction: F): F {

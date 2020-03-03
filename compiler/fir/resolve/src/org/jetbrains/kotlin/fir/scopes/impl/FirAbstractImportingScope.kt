@@ -11,9 +11,7 @@ import org.jetbrains.kotlin.fir.declarations.expandedConeType
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.calls.TowerScopeLevel
 import org.jetbrains.kotlin.fir.resolve.toSymbol
-import org.jetbrains.kotlin.fir.scopes.FirScope
-import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
-import org.jetbrains.kotlin.fir.scopes.unsubstitutedScope
+import org.jetbrains.kotlin.fir.scopes.*
 import org.jetbrains.kotlin.fir.symbols.CallableId
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.name.ClassId
@@ -45,7 +43,7 @@ abstract class FirAbstractImportingScope(
         import: FirResolvedImport,
         name: Name,
         token: TowerScopeLevel.Token<T>,
-        processor: (FirCallableSymbol<*>) -> Unit
+        processor: ScopeProcessor<FirCallableSymbol<*>>
     ) {
         val callableId = CallableId(import.packageFqName, import.relativeClassName, name)
 
@@ -70,7 +68,7 @@ abstract class FirAbstractImportingScope(
             }
 
             for (symbol in symbols) {
-                processor(symbol)
+                processor.noSubstitution(symbol)
             }
         }
 
@@ -79,21 +77,31 @@ abstract class FirAbstractImportingScope(
     abstract fun <T : FirCallableSymbol<*>> processCallables(
         name: Name,
         token: TowerScopeLevel.Token<T>,
-        processor: (FirCallableSymbol<*>) -> Unit
+        processor: ScopeProcessor<FirCallableSymbol<*>>
     )
 
     final override fun processFunctionsByName(name: Name, processor: ScopeProcessor<FirFunctionSymbol<*>>) {
         return processCallables(
             name,
             TowerScopeLevel.Token.Functions
-        ) { if (it is FirFunctionSymbol<*>) processor(it) }
+        ) {
+            if (it.symbol is FirFunctionSymbol<*>) {
+                @Suppress("UNCHECKED_CAST")
+                processor(it as ScopeElement<FirFunctionSymbol<*>>)
+            }
+        }
     }
 
     final override fun processPropertiesByName(name: Name, processor: ScopeProcessor<FirVariableSymbol<*>>) {
         return processCallables(
             name,
             TowerScopeLevel.Token.Properties
-        ) { if (it is FirVariableSymbol<*>) processor(it) }
+        ) {
+            if (it.symbol is FirVariableSymbol<*>) {
+                @Suppress("UNCHECKED_CAST")
+                processor(it as ScopeElement<FirVariableSymbol<*>>)
+            }
+        }
     }
 
 }

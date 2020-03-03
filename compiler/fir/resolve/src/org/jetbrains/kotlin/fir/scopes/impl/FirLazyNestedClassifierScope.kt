@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.fir.scopes.impl
 import org.jetbrains.kotlin.fir.resolve.FirSymbolProvider
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
+import org.jetbrains.kotlin.fir.scopes.noSubstitution
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassifierSymbol
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
@@ -31,6 +32,6 @@ class FirLazyNestedClassifierScope(
         val child = classId.createNestedClassId(name)
         val symbol = symbolProvider.getClassLikeSymbolByFqName(child) ?: return
 
-        processor(symbol)
+        processor.noSubstitution(symbol)
     }
 }

@@ -3,5 +3,5 @@ FILE: extensionLambdaInDefaultArgument.kt
         ^ <Unresolved name: length>#
     }
     ): R|kotlin/Int| {
-        ^test R|<local>/f|.R|FakeOverride<kotlin/Function1.invoke: R|kotlin/Int|>|(String())
+        ^test R|<local>/f|.R|kotlin/Function1.invoke|(String())
     }

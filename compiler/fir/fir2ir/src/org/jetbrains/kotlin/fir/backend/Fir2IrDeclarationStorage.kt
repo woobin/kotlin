@@ -255,14 +255,14 @@ class Fir2IrDeclarationStorage(
                     for (name in allNames) {
                         if (name in processedNames) continue
                         processedNames += name
-                        scope.processFunctionsByName(name) { functionSymbol ->
+                        scope.processFunctionsByName(name) { (functionSymbol) ->
                             if (functionSymbol is FirNamedFunctionSymbol) {
                                 val fakeOverrideSymbol =
                                     FirClassSubstitutionScope.createFakeOverrideFunction(session, functionSymbol.fir, functionSymbol)
                                 irClass.declarations += getIrFunction(fakeOverrideSymbol.fir, irClass, shouldLeaveScope = true)
                             }
                         }
-                        scope.processPropertiesByName(name) { propertySymbol ->
+                        scope.processPropertiesByName(name) { (propertySymbol) ->
                             if (propertySymbol is FirPropertySymbol) {
                                 val fakeOverrideSymbol =
                                     FirClassSubstitutionScope.createFakeOverrideProperty(session, propertySymbol.fir, propertySymbol)

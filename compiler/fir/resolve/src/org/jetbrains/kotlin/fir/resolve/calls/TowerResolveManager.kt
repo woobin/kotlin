@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.fir.resolve.constructType
 import org.jetbrains.kotlin.fir.resolve.transformQualifiedAccessUsingSmartcastInfo
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.firUnsafe
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
+import org.jetbrains.kotlin.fir.scopes.ScopeElement
 import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
@@ -52,11 +53,12 @@ class TowerResolveManager internal constructor(private val towerResolver: FirTow
         val group: TowerGroup
     ) : TowerScopeLevel.TowerScopeLevelProcessor<AbstractFirBasedSymbol<*>> {
         override fun consumeCandidate(
-            symbol: AbstractFirBasedSymbol<*>,
+            scopeElement: ScopeElement<AbstractFirBasedSymbol<*>>,
             dispatchReceiverValue: ReceiverValue?,
             implicitExtensionReceiverValue: ImplicitReceiverValue<*>?,
             builtInExtensionFunctionReceiverValue: ReceiverValue?
         ) {
+            val symbol = scopeElement.symbol
             // Check explicit extension receiver for default package members
             if (symbol is FirNamedFunctionSymbol && dispatchReceiverValue == null &&
                 (implicitExtensionReceiverValue == null) != (explicitReceiver == null) &&
@@ -87,7 +89,7 @@ class TowerResolveManager internal constructor(private val towerResolver: FirTow
             // ---
             resultCollector.consumeCandidate(
                 group, candidateFactory.createCandidate(
-                    symbol,
+                    scopeElement,
                     explicitReceiverKind,
                     dispatchReceiverValue,
                     implicitExtensionReceiverValue,

@@ -9,13 +9,13 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.FirSimpleFunctionBuilder
 import org.jetbrains.kotlin.fir.declarations.builder.FirValueParameterBuilder
-import org.jetbrains.kotlin.fir.declarations.synthetic.FirSyntheticProperty
 import org.jetbrains.kotlin.fir.declarations.synthetic.buildSyntheticProperty
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.java.JavaTypeParameterStack
 import org.jetbrains.kotlin.fir.java.declarations.*
 import org.jetbrains.kotlin.fir.resolve.calls.FirSyntheticPropertiesScope
 import org.jetbrains.kotlin.fir.scopes.FirScope
+import org.jetbrains.kotlin.fir.scopes.ScopeElement
 import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
 import org.jetbrains.kotlin.fir.scopes.impl.AbstractFirUseSiteMemberScope
 import org.jetbrains.kotlin.fir.symbols.CallableId
@@ -37,7 +37,7 @@ class JavaClassUseSiteMemberScope(
     internal val symbol = klass.symbol
 
     internal fun bindOverrides(name: Name) {
-        val overrideCandidates = mutableSetOf<FirFunctionSymbol<*>>()
+        val overrideCandidates = mutableSetOf<ScopeElement<FirFunctionSymbol<*>>>()
         declaredMemberScope.processFunctionsByName(name) {
             overrideCandidates += it
         }
@@ -47,11 +47,12 @@ class JavaClassUseSiteMemberScope(
     }
 
     private fun generateAccessorSymbol(
-        functionSymbol: FirFunctionSymbol<*>,
+        functionElement: ScopeElement<FirFunctionSymbol<*>>,
         syntheticPropertyName: Name,
-        overrideCandidates: MutableSet<FirCallableSymbol<*>>,
+        overrideCandidates: MutableSet<ScopeElement<FirCallableSymbol<*>>>,
         isGetter: Boolean
     ): FirAccessorSymbol? {
+        val functionSymbol = functionElement.symbol
         if (functionSymbol !is FirNamedFunctionSymbol) {
             return null
         }
@@ -67,7 +68,7 @@ class JavaClassUseSiteMemberScope(
                 return null
             }
         }
-        overrideCandidates += functionSymbol
+        overrideCandidates += functionElement
         return buildSyntheticProperty {
             session = this@JavaClassUseSiteMemberScope.session
             name = syntheticPropertyName
@@ -85,7 +86,7 @@ class JavaClassUseSiteMemberScope(
         setterName: Name?,
         processor: ScopeProcessor<FirVariableSymbol<*>>
     ) {
-        val overrideCandidates = mutableSetOf<FirCallableSymbol<*>>()
+        val overrideCandidates = mutableSetOf<ScopeElement<FirCallableSymbol<*>>>()
         val klass = symbol.fir
         declaredMemberScope.processPropertiesByName(propertyName) { variableSymbol ->
             overrideCandidates += variableSymbol
@@ -94,26 +95,29 @@ class JavaClassUseSiteMemberScope(
 
         if (klass is FirJavaClass) {
             for (getterName in getterNames) {
-                declaredMemberScope.processFunctionsByName(getterName) { functionSymbol ->
+                declaredMemberScope.processFunctionsByName(getterName) { functionElement ->
                     val accessorSymbol = generateAccessorSymbol(
-                        functionSymbol, propertyName, overrideCandidates, isGetter = true
+                        functionElement, propertyName, overrideCandidates, isGetter = true
                     )
                     if (accessorSymbol != null) {
                         // NB: accessor should not be processed directly unless we find matching property symbol in supertype
-                        overrideCandidates += accessorSymbol
+                        overrideCandidates += ScopeElement(accessorSymbol, functionElement.substitutor)
                     }
                 }
             }
         }
 
         superTypesScope.processPropertiesByName(propertyName) {
-            val firCallableMember = it.fir as? FirCallableMemberDeclaration<*>
+            val firCallableMember = it.symbol.fir as? FirCallableMemberDeclaration<*>
             if (firCallableMember?.isStatic == true) {
                 processor(it)
             } else {
-                when (val overriddenBy = it.getOverridden(overrideCandidates)) {
-                    null -> processor(it)
-                    is FirAccessorSymbol -> processor(overriddenBy)
+                val overriddenBy = it.getOverridden(overrideCandidates)
+                when {
+                    overriddenBy == null -> processor(it)
+                    overriddenBy.symbol is FirAccessorSymbol ->
+                        @Suppress("UNCHECKED_CAST")
+                        processor(overriddenBy as ScopeElement<FirVariableSymbol<*>>)
                 }
             }
         }

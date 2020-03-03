@@ -52,7 +52,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver {
 
                 var resolvedSymbol: FirClassifierSymbol<*>? = null
                 for (typeScope in scope.scopes) {
-                    typeScope.processClassifiersByName(typeRef.qualifier.first().name) { symbol ->
+                    typeScope.processClassifiersByName(typeRef.qualifier.first().name) { (symbol) ->
                         if (resolvedSymbol != null) return@processClassifiersByName
                         resolvedSymbol = when (symbol) {
                             is FirClassLikeSymbol<*> -> {

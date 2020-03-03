@@ -22,7 +22,7 @@ digraph smartcastOnLambda_kt {
             subgraph cluster_3 {
                 color=blue
                 9 [label="Enter block"];
-                10 [label="Function call: R|<local>/func|.R|FakeOverride<kotlin/Function0.invoke: R|kotlin/Unit|>|()"];
+                10 [label="Function call: R|<local>/func|.R|kotlin/Function0.invoke|()"];
                 11 [label="Exit block"];
             }
             12 [label="Exit when branch result"];

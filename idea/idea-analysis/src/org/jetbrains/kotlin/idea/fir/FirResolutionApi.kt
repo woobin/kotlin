@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.fir.resolve.getClassDeclaredCallableSymbols
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirBodyResolveTransformer
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.createReturnTypeCalculatorForIDE
 import org.jetbrains.kotlin.fir.resolve.transformers.runResolve
+import org.jetbrains.kotlin.fir.scopes.ScopeElement
 import org.jetbrains.kotlin.fir.scopes.impl.FirPackageMemberScope
 import org.jetbrains.kotlin.fir.symbols.CallableId
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
@@ -57,7 +58,8 @@ private fun FirFile.findCallableMember(
     // NB: not sure it's correct to use member scope provider from here (because of possible changes)
     val memberScope = FirPackageMemberScope(this.packageFqName, session)
     var result: FirCallableDeclaration<*>? = null
-    val processor = { symbol: FirCallableSymbol<*> ->
+    val processor = { element: ScopeElement<FirCallableSymbol<*>> ->
+        val symbol = element.symbol
         val fir = symbol.fir
         if (result == null && fir.psi == callableMember) {
             result = fir

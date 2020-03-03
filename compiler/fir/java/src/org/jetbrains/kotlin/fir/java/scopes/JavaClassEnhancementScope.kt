@@ -13,7 +13,7 @@ import org.jetbrains.kotlin.fir.declarations.builder.FirConstructorBuilder
 import org.jetbrains.kotlin.fir.declarations.builder.FirPrimaryConstructorBuilder
 import org.jetbrains.kotlin.fir.declarations.builder.FirSimpleFunctionBuilder
 import org.jetbrains.kotlin.fir.declarations.builder.buildValueParameter
-import org.jetbrains.kotlin.fir.declarations.impl.*
+import org.jetbrains.kotlin.fir.declarations.impl.FirDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.synthetic.FirSyntheticProperty
 import org.jetbrains.kotlin.fir.declarations.synthetic.buildSyntheticProperty
 import org.jetbrains.kotlin.fir.expressions.FirConstKind
@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.fir.java.declarations.*
 import org.jetbrains.kotlin.fir.java.enhancement.*
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.scopes.FirScope
+import org.jetbrains.kotlin.fir.scopes.ScopeElement
 import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
 import org.jetbrains.kotlin.fir.scopes.jvm.computeJvmDescriptor
 import org.jetbrains.kotlin.fir.symbols.CallableId
@@ -61,8 +62,8 @@ class JavaClassEnhancementScope(
     override fun processPropertiesByName(name: Name, processor: ScopeProcessor<FirVariableSymbol<*>>) {
         useSiteMemberScope.processPropertiesByName(name) process@{ original ->
 
-            val field = enhancements.getOrPut(original) { enhance(original, name) }
-            processor(field as FirVariableSymbol<*>)
+            val field = enhancements.getOrPut(original.symbol) { enhance(original.symbol, name) }
+            processor(ScopeElement(field as FirVariableSymbol<*>))
         }
 
         return super.processPropertiesByName(name, processor)
@@ -71,8 +72,8 @@ class JavaClassEnhancementScope(
     override fun processFunctionsByName(name: Name, processor: ScopeProcessor<FirFunctionSymbol<*>>) {
         useSiteMemberScope.processFunctionsByName(name) process@{ original ->
 
-            val function = enhancements.getOrPut(original) { enhance(original, name) }
-            processor(function as FirFunctionSymbol<*>)
+            val function = enhancements.getOrPut(original.symbol) { enhance(original.symbol, name) }
+            processor(ScopeElement(function as FirFunctionSymbol<*>, original.substitutor))
         }
 
         return super.processFunctionsByName(name, processor)
@@ -317,7 +318,7 @@ class JavaClassEnhancementScope(
             useSiteMemberScope
                 .overrideByBase
                 .toList()
-                .groupBy({ (_, key) -> key }, { (value) -> value })
+                .groupBy({ (_, key) -> key?.symbol }, { (value) -> value })
         }
         return backMap[this.symbol]?.map { it.fir as FirCallableMemberDeclaration<*> } ?: emptyList()
     }

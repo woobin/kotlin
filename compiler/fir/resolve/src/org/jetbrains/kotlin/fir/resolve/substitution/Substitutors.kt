@@ -128,6 +128,12 @@ fun substitutorByMap(substitution: Map<FirTypeParameterSymbol, ConeKotlinType>):
     return ConeSubstitutorByMap(substitution)
 }
 
+fun ConeSubstitutor.compose(other: ConeSubstitutor): ConeSubstitutor {
+    if (this === ConeSubstitutor.Empty) return other
+    if (other === ConeSubstitutor.Empty) return this
+    return ChainedSubstitutor(this, other)
+}
+
 data class ChainedSubstitutor(private val first: ConeSubstitutor, private val second: ConeSubstitutor) : ConeSubstitutor() {
     override fun substituteOrNull(type: ConeKotlinType): ConeKotlinType? {
         first.substituteOrNull(type)?.let { return second.substituteOrSelf(it) }

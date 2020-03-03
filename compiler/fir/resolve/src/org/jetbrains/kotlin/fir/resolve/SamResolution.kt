@@ -268,7 +268,7 @@ private fun FirRegularClass.findSingleAbstractMethodByNames(
 
         if (metIncorrectMember) break
 
-        classUseSiteMemberScope.processFunctionsByName(candidateName) { functionSymbol ->
+        classUseSiteMemberScope.processFunctionsByName(candidateName) { (functionSymbol) ->
             val firFunction = functionSymbol.fir
             require(firFunction is FirSimpleFunction) {
                 "${functionSymbol.callableId

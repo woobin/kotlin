@@ -1,6 +1,6 @@
 FILE: localObject.kt
     public final fun <T> run(block: R|() -> T|): R|T| {
-        ^run R|<local>/block|.R|FakeOverride<kotlin/Function0.invoke: R|T|>|()
+        ^run R|<local>/block|.R|kotlin/Function0.invoke|()
     }
     public abstract interface Foo : R|kotlin/Any| {
         public abstract fun foo(): R|kotlin/Int|

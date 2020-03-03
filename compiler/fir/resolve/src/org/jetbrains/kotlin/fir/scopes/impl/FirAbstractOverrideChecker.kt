@@ -15,16 +15,24 @@ import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 
 abstract class FirAbstractOverrideChecker : FirOverrideChecker {
 
-    protected abstract fun isEqualTypes(candidateTypeRef: FirTypeRef, baseTypeRef: FirTypeRef, substitutor: ConeSubstitutor): Boolean
+    protected abstract fun isEqualTypes(
+        candidateTypeRef: FirTypeRef,
+        overrideSubstitutor: ConeSubstitutor,
+        baseTypeRef: FirTypeRef,
+        baseSubstitutor: ConeSubstitutor,
+        substitutor: ConeSubstitutor
+    ): Boolean
 
     protected fun getSubstitutorIfTypeParametersAreCompatible(
         overrideCandidate: FirSimpleFunction,
-        baseDeclaration: FirSimpleFunction
+        overrideSubstitutor: ConeSubstitutor,
+        baseDeclaration: FirSimpleFunction,
+        baseSubstitutor: ConeSubstitutor
     ): ConeSubstitutor? {
         val substitutor = buildSubstitutorForOverridesCheck(overrideCandidate, baseDeclaration) ?: return null
         if (!overrideCandidate.typeParameters.zip(baseDeclaration.typeParameters).all { (a, b) ->
                 a.bounds.size == b.bounds.size && a.bounds.zip(b.bounds).all { (aBound, bBound) ->
-                    isEqualTypes(aBound, bBound, substitutor)
+                    isEqualTypes(aBound, overrideSubstitutor, bBound, baseSubstitutor, substitutor)
                 }
             }
         ) return null

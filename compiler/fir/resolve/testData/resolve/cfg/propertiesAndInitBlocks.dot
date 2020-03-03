@@ -6,7 +6,7 @@ digraph propertiesAndInitBlocks_kt {
     subgraph cluster_0 {
         color=red
         0 [label="Enter function run" style="filled" fillcolor=red];
-        1 [label="Function call: R|<local>/block|.R|FakeOverride<kotlin/Function0.invoke: R|kotlin/Unit|>|()"];
+        1 [label="Function call: R|<local>/block|.R|kotlin/Function0.invoke|()"];
         2 [label="Exit function run" style="filled" fillcolor=red];
     }
 

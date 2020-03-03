@@ -18,6 +18,6 @@ abstract class FirTypeParameterScope : FirScope() {
     ) {
         val matchedTypeParameters = typeParameters[name] ?: return
 
-        matchedTypeParameters.forEach { processor(it.symbol) }
+        matchedTypeParameters.forEach { processor.noSubstitution(it.symbol) }
     }
 }

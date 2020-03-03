@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.fir.resolve.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.calls.TowerScopeLevel
 import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
+import org.jetbrains.kotlin.fir.scopes.noSubstitution
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassifierSymbol
 import org.jetbrains.kotlin.name.ClassId
@@ -36,14 +37,14 @@ abstract class FirAbstractSimpleImportingScope(
                 import.resolvedClassId?.createNestedClassId(importedName)
                     ?: ClassId.topLevel(import.packageFqName.child(importedName))
             val symbol = provider.getClassLikeSymbolByFqName(classId) ?: continue
-            processor(symbol)
+            processor.noSubstitution(symbol)
         }
     }
 
     override fun <T : FirCallableSymbol<*>> processCallables(
         name: Name,
         token: TowerScopeLevel.Token<T>,
-        processor: (FirCallableSymbol<*>) -> Unit
+        processor: ScopeProcessor<FirCallableSymbol<*>>
     ) {
         val imports = simpleImports[name] ?: return
         if (imports.isEmpty()) return

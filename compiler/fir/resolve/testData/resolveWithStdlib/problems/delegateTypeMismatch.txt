@@ -35,7 +35,7 @@ FILE: delegateTypeMismatch.kt
 
         public final var classifierNamePolicy: R|ClassifierNamePolicy|by this@R|/A|.R|/A.property|<R|ClassifierNamePolicy.SOURCE_CODE_QUALIFIED|>(Q|ClassifierNamePolicy.SOURCE_CODE_QUALIFIED|)
             public get(): R|ClassifierNamePolicy| {
-                ^ D|/A.classifierNamePolicy|.R|FakeOverride<kotlin/properties/ReadWriteProperty.getValue: R|ClassifierNamePolicy.SOURCE_CODE_QUALIFIED|>|(this@R|/A|, ::R|/A.classifierNamePolicy|)
+                ^ D|/A.classifierNamePolicy|.R|kotlin/properties/ReadWriteProperty.getValue|(this@R|/A|, ::R|/A.classifierNamePolicy|)
             }
             public set(<set-?>: R|ClassifierNamePolicy|): R|kotlin/Unit| {
                 D|/A.classifierNamePolicy|.<Inapplicable(INAPPLICABLE): [kotlin/properties/ReadWriteProperty.setValue]>#(this@R|/A|, ::R|/A.classifierNamePolicy|, R|<local>/classifierNamePolicy|)

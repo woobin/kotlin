@@ -190,7 +190,7 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
                         for (declaration in javaClass.declarations) {
                             if (declaration in renderedDeclarations) continue
                             when (declaration) {
-                                is FirJavaConstructor -> enhancementScope.processFunctionsByName(javaClass.name) { symbol ->
+                                is FirJavaConstructor -> enhancementScope.processFunctionsByName(javaClass.name) { (symbol) ->
                                     val enhanced = symbol.fir
                                     if (enhanced !in renderedDeclarations) {
                                         enhanced.accept(renderer, null)
@@ -198,7 +198,7 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
                                         renderedDeclarations += enhanced
                                     }
                                 }
-                                is FirJavaMethod -> enhancementScope.processFunctionsByName(declaration.name) { symbol ->
+                                is FirJavaMethod -> enhancementScope.processFunctionsByName(declaration.name) { (symbol) ->
                                     val enhanced = symbol.fir
                                     if (enhanced !in renderedDeclarations) {
                                         enhanced.accept(renderer, null)
@@ -206,7 +206,7 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
                                         renderedDeclarations += enhanced
                                     }
                                 }
-                                is FirJavaField -> enhancementScope.processPropertiesByName(declaration.name) { symbol ->
+                                is FirJavaField -> enhancementScope.processPropertiesByName(declaration.name) { (symbol) ->
                                     val enhanced = symbol.fir
                                     if (enhanced !in renderedDeclarations) {
                                         enhanced.accept(renderer, null)

@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
 import org.jetbrains.kotlin.fir.resolve.scopeSessionKey
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
+import org.jetbrains.kotlin.fir.scopes.noSubstitution
 import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.CallableId
 import org.jetbrains.kotlin.fir.symbols.ConeClassifierLookupTag
@@ -117,7 +118,7 @@ class FirIntegerLiteralTypeScope(private val session: FirSession) : FirScope() {
         val symbol = BINARY_OPERATOR_SYMBOLS[name]
             ?: UNARY_OPERATOR_SYMBOLS[name]
             ?: return
-        processor(symbol)
+        processor.noSubstitution(symbol)
     }
 
     override fun processPropertiesByName(name: Name, processor: ScopeProcessor<FirVariableSymbol<*>>) {

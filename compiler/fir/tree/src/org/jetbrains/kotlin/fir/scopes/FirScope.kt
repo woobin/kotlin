@@ -5,13 +5,26 @@
 
 package org.jetbrains.kotlin.fir.scopes
 
+import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassifierSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 import org.jetbrains.kotlin.name.Name
 
-typealias ScopeProcessor<S> = (S) -> Unit
+class ScopeElement<out S : FirBasedSymbol<*>>(
+    val symbol: S,
+    val substitutor: ConeSubstitutor? = null
+) {
+    operator fun component1() = symbol
+    operator fun component2() = substitutor
+
+    val substitutorOrEmpty: ConeSubstitutor = substitutor ?: ConeSubstitutor.Empty
+}
+
+typealias ScopeProcessor<S> = (ScopeElement<S>) -> Unit
+
+fun <S : FirBasedSymbol<*>> ScopeProcessor<S>.noSubstitution(symbol: S) = this(ScopeElement(symbol, substitutor = null))
 
 abstract class FirScope {
     open fun processClassifiersByName(

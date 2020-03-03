@@ -8,9 +8,9 @@ package org.jetbrains.kotlin.fir.resolve.calls
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.declarations.isStatic
-import org.jetbrains.kotlin.fir.declarations.synthetic.FirSyntheticProperty
 import org.jetbrains.kotlin.fir.declarations.synthetic.buildSyntheticProperty
 import org.jetbrains.kotlin.fir.scopes.FirScope
+import org.jetbrains.kotlin.fir.scopes.ScopeElement
 import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
 import org.jetbrains.kotlin.fir.symbols.CallableId
 import org.jetbrains.kotlin.fir.symbols.StandardClassIds
@@ -42,9 +42,10 @@ class FirSyntheticPropertiesScope(
     private fun checkGetAndCreateSynthetic(
         propertyName: Name,
         getterName: Name,
-        getterSymbol: FirFunctionSymbol<*>,
+        getterElement: ScopeElement<FirFunctionSymbol<*>>,
         processor: ScopeProcessor<FirVariableSymbol<*>>
     ) {
+        val getterSymbol = getterElement.symbol
         val getter = getterSymbol.fir as? FirSimpleFunction ?: return
 
         if (getter.typeParameters.isNotEmpty()) return
@@ -56,7 +57,8 @@ class FirSyntheticPropertiesScope(
         var matchingSetter: FirSimpleFunction? = null
         if (getterReturnType != null) {
             val setterName = setterNameByGetterName(getterName)
-            baseScope.processFunctionsByName(setterName, fun(setterSymbol: FirFunctionSymbol<*>) {
+            baseScope.processFunctionsByName(setterName, fun(element: ScopeElement<FirFunctionSymbol<*>>) {
+                val setterSymbol = element.symbol
                 if (matchingSetter != null) return
                 val setter = setterSymbol.fir as? FirSimpleFunction ?: return
                 val parameter = setter.valueParameters.singleOrNull() ?: return
@@ -77,7 +79,7 @@ class FirSyntheticPropertiesScope(
             delegateGetter = getter
             delegateSetter = matchingSetter
         }
-        processor(property.symbol)
+        processor(ScopeElement(property.symbol, getterElement.substitutor))
     }
 
     override fun processPropertiesByName(name: Name, processor: ScopeProcessor<FirVariableSymbol<*>>) {

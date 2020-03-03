@@ -324,7 +324,7 @@ digraph jumps_kt {
     subgraph cluster_30 {
         color=red
         109 [label="Enter function run" style="filled" fillcolor=red];
-        110 [label="Function call: R|<local>/block|.R|FakeOverride<kotlin/Function0.invoke: R|kotlin/Unit|>|()"];
+        110 [label="Function call: R|<local>/block|.R|kotlin/Function0.invoke|()"];
         111 [label="Exit function run" style="filled" fillcolor=red];
     }
 

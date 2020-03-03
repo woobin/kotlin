@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.fir.declarations.FirResolvedImport
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.calls.TowerScopeLevel
 import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
+import org.jetbrains.kotlin.fir.scopes.noSubstitution
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassifierSymbol
 import org.jetbrains.kotlin.name.ClassId
@@ -42,7 +43,7 @@ abstract class FirAbstractStarImportingScope(
             }
             val symbol = provider.getClassLikeSymbolByFqName(classId) ?: continue
             empty = false
-            processor(symbol)
+            processor.noSubstitution(symbol)
         }
         if (empty) {
             absentClassifierNames += name
@@ -53,7 +54,7 @@ abstract class FirAbstractStarImportingScope(
     override fun <T : FirCallableSymbol<*>> processCallables(
         name: Name,
         token: TowerScopeLevel.Token<T>,
-        processor: (FirCallableSymbol<*>) -> Unit
+        processor: ScopeProcessor<FirCallableSymbol<*>>
     ) {
         if (starImports.isEmpty()) {
             return

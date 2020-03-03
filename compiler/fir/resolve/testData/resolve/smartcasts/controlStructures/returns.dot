@@ -344,8 +344,8 @@ digraph returns_kt {
     subgraph cluster_29 {
         color=red
         121 [label="Enter function runHigherOrder" style="filled" fillcolor=red];
-        122 [label="Function call: R|<local>/f|.R|FakeOverride<kotlin/Function0.invoke: R|T|>|()"];
-        123 [label="Jump: ^runHigherOrder R|<local>/f|.R|FakeOverride<kotlin/Function0.invoke: R|T|>|()"];
+        122 [label="Function call: R|<local>/f|.R|kotlin/Function0.invoke|()"];
+        123 [label="Jump: ^runHigherOrder R|<local>/f|.R|kotlin/Function0.invoke|()"];
         124 [label="Stub" style="filled" fillcolor=gray];
         125 [label="Exit function runHigherOrder" style="filled" fillcolor=red];
     }

@@ -5,10 +5,14 @@
 
 package org.jetbrains.kotlin.fir.scopes.impl
 
-import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.NAME_FOR_BACKING_FIELD
+import org.jetbrains.kotlin.fir.declarations.FirProperty
+import org.jetbrains.kotlin.fir.declarations.FirRegularClass
+import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
+import org.jetbrains.kotlin.fir.declarations.FirVariable
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.ScopeProcessor
+import org.jetbrains.kotlin.fir.scopes.noSubstitution
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.name.Name
 
@@ -38,21 +42,21 @@ class FirLocalScope : FirScope() {
 
     override fun processFunctionsByName(name: Name, processor: ScopeProcessor<FirFunctionSymbol<*>>) {
         for (function in functions[name].orEmpty()) {
-            processor(function)
+            processor.noSubstitution(function)
         }
     }
 
     override fun processPropertiesByName(name: Name, processor: ScopeProcessor<FirVariableSymbol<*>>) {
         val property = properties[name]
         if (property != null) {
-            processor(property)
+            processor.noSubstitution(property)
         }
     }
 
     override fun processClassifiersByName(name: Name, processor: ScopeProcessor<FirClassifierSymbol<*>>) {
         val klass = classes[name]
         if (klass != null) {
-            processor(klass)
+            processor.noSubstitution(klass)
         }
     }
 }

@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.fir.resolve.calls.*
 import org.jetbrains.kotlin.fir.resolve.diagnostics.FirUnresolvedNameError
 import org.jetbrains.kotlin.fir.resolve.inference.FirCallCompleter
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirAbstractBodyResolveTransformer
+import org.jetbrains.kotlin.fir.scopes.ScopeElement
 import org.jetbrains.kotlin.fir.symbols.CallableId
 import org.jetbrains.kotlin.fir.symbols.SyntheticCallableId
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
@@ -143,7 +144,7 @@ class FirSyntheticCallGenerator(
 
     private fun generateCandidate(callInfo: CallInfo, function: FirSimpleFunction): Candidate =
         CandidateFactory(components, callInfo).createCandidate(
-            symbol = function.symbol,
+            element = ScopeElement(function.symbol),
             explicitReceiverKind = ExplicitReceiverKind.NO_EXPLICIT_RECEIVER
         )
 

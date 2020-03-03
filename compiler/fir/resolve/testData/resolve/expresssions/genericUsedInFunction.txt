@@ -13,7 +13,7 @@ FILE: genericUsedInFunction.kt
 
     }
     public final fun test(arg: R|Generic<kotlin/String>|): R|kotlin/Unit| {
-        lval value: R|kotlin/String| = R|<local>/arg|.R|FakeOverride</Generic.value: R|kotlin/String|>|
-        lval foo: R|kotlin/String| = R|<local>/arg|.R|FakeOverride</Generic.foo: R|kotlin/String|>|()
+        lval value: R|kotlin/String| = R|<local>/arg|.R|/Generic.value|
+        lval foo: R|kotlin/String| = R|<local>/arg|.R|/Generic.foo|()
         lval length: R|kotlin/Int| = R|<local>/foo|.R|kotlin/String.length|.R|kotlin/Int.plus|(R|<local>/value|.R|kotlin/String.length|)
     }

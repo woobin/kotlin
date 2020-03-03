@@ -5,10 +5,12 @@
 
 package org.jetbrains.kotlin.fir.resolve.calls
 
+import org.jetbrains.kotlin.fir.FirSymbolOwner
 import org.jetbrains.kotlin.fir.declarations.FirTypeParametersOwner
 import org.jetbrains.kotlin.fir.renderWithType
 import org.jetbrains.kotlin.fir.resolve.inference.TypeParameterBasedTypeVariable
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
+import org.jetbrains.kotlin.fir.resolve.substitution.compose
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.FirTypePlaceholderProjection
@@ -20,13 +22,20 @@ import org.jetbrains.kotlin.resolve.calls.inference.model.SimpleConstraintSystem
 internal object CreateFreshTypeVariableSubstitutorStage : ResolutionStage() {
     override suspend fun check(candidate: Candidate, sink: CheckerSink, callInfo: CallInfo) {
         val declaration = candidate.symbol.fir
-        if (declaration !is FirTypeParametersOwner || declaration.typeParameters.isEmpty()) {
+        if ((declaration !is FirTypeParametersOwner || declaration.typeParameters.isEmpty())
+            && candidate.scopeSubstitutor === ConeSubstitutor.Empty
+        ) {
             candidate.substitutor = ConeSubstitutor.Empty
             candidate.freshVariables = emptyList()
             return
         }
         val csBuilder = candidate.system.getBuilder()
-        val (substitutor, freshVariables) = createToFreshVariableSubstitutorAndAddInitialConstraints(declaration, candidate, csBuilder)
+        val (substitutor, freshVariables) =
+            createToFreshVariableSubstitutorAndAddInitialConstraints(
+                declaration,
+                candidate.scopeSubstitutor ?: ConeSubstitutor.Empty,
+                csBuilder
+            )
         candidate.substitutor = substitutor
         candidate.freshVariables = freshVariables
 
@@ -41,7 +50,7 @@ internal object CreateFreshTypeVariableSubstitutorStage : ResolutionStage() {
 //            return
 //        }
 
-        val typeParameters = declaration.typeParameters
+        val typeParameters = (declaration as? FirTypeParametersOwner)?.typeParameters.orEmpty()
         for (index in typeParameters.indices) {
             val typeParameter = typeParameters[index]
             val freshVariable = freshVariables[index]
@@ -82,16 +91,19 @@ internal object CreateFreshTypeVariableSubstitutorStage : ResolutionStage() {
 }
 
 fun createToFreshVariableSubstitutorAndAddInitialConstraints(
-    declaration: FirTypeParametersOwner,
-    candidate: Candidate,
+    declaration: FirSymbolOwner<*>,
+    scopeSubstitutor: ConeSubstitutor,
     csBuilder: ConstraintSystemOperation
 ): Pair<ConeSubstitutor, List<ConeTypeVariable>> {
+    if (declaration !is FirTypeParametersOwner) return scopeSubstitutor to emptyList()
 
     val typeParameters = declaration.typeParameters
 
     val freshTypeVariables = typeParameters.map { TypeParameterBasedTypeVariable(it.symbol) }
 
-    val toFreshVariables = substitutorByMap(freshTypeVariables.associate { it.typeParameterSymbol to it.defaultType })
+    val resultingSubstitutor = scopeSubstitutor.compose(
+        substitutorByMap(freshTypeVariables.associate { it.typeParameterSymbol to it.defaultType })
+    )
 
     for (freshVariable in freshTypeVariables) {
         csBuilder.registerVariable(freshVariable)
@@ -101,7 +113,11 @@ fun createToFreshVariableSubstitutorAndAddInitialConstraints(
         upperBound: ConeKotlinType//,
         //position: DeclaredUpperBoundConstraintPosition
     ) {
-        csBuilder.addSubtypeConstraint(defaultType, toFreshVariables.substituteOrSelf(upperBound), FirDeclaredUpperBoundConstraintPosition())
+        csBuilder.addSubtypeConstraint(
+            defaultType,
+            resultingSubstitutor.substituteOrSelf(upperBound),
+            FirDeclaredUpperBoundConstraintPosition()
+        )
     }
 
     for (index in typeParameters.indices) {
@@ -135,5 +151,5 @@ fun createToFreshVariableSubstitutorAndAddInitialConstraints(
 //            }
 //        }
 //    }
-    return toFreshVariables to freshTypeVariables
+    return resultingSubstitutor to freshTypeVariables
 }
