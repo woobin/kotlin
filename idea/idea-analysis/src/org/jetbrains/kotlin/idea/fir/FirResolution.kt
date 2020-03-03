@@ -11,15 +11,11 @@ import com.intellij.openapi.util.registry.Registry
 object FirResolution {
     private const val optionName = "kotlin.use.fir.resolution"
 
-    private val initialEnabledValue: Boolean by lazy {
-        Registry.`is`(optionName, /* defaultValue = */ true)
+    /*private val initialEnabledValue: Boolean by lazy {
+        Registry.`is`(optionName, *//* defaultValue = *//* true)
     }
 
-    private var changedEnabledValue: Boolean? = null
+    private var changedEnabledValue: Boolean? = null*/
 
-    var enabled: Boolean
-        get() = changedEnabledValue ?: initialEnabledValue
-        set(value) {
-            changedEnabledValue = value
-        }
+    val enabled: Boolean = Registry.`is`(optionName, /* defaultValue = */ true)
 }

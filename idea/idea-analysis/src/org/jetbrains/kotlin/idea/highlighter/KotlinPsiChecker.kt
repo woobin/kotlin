@@ -29,6 +29,7 @@ import com.intellij.openapi.util.Key
 import com.intellij.psi.MultiRangeReference
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.util.parentOfType
 import com.intellij.util.containers.MultiMap
 import org.jetbrains.kotlin.asJava.getJvmSignatureDiagnostics
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
@@ -37,8 +38,10 @@ import org.jetbrains.kotlin.diagnostics.DiagnosticFactory
 import org.jetbrains.kotlin.diagnostics.Errors
 import org.jetbrains.kotlin.diagnostics.Severity
 import org.jetbrains.kotlin.idea.caches.project.getModuleInfo
+import org.jetbrains.kotlin.idea.caches.resolve.analyzeElementWithAllCompilerChecks
 import org.jetbrains.kotlin.idea.caches.resolve.analyzeWithAllCompilerChecks
 import org.jetbrains.kotlin.idea.caches.resolve.analyzeWithContent
+import org.jetbrains.kotlin.idea.core.util.range
 import org.jetbrains.kotlin.idea.fir.FirResolution
 import org.jetbrains.kotlin.idea.fir.firResolveState
 import org.jetbrains.kotlin.idea.fir.getOrBuildFirWithDiagnostics
@@ -52,32 +55,69 @@ import org.jetbrains.kotlin.resolve.diagnostics.Diagnostics
 import org.jetbrains.kotlin.types.KotlinType
 import java.lang.reflect.*
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 open class KotlinPsiChecker : Annotator, HighlightRangeExtension {
+    private enum class HighlightingState {
+        STARTED, FINISHED
+    }
+
+    private var highlightingState: ConcurrentHashMap<KtFunction, HighlightingState> = ConcurrentHashMap()
+    private var set: ConcurrentHashMap<Diagnostic, Unit> = ConcurrentHashMap()
 
     override fun annotate(element: PsiElement, holder: AnnotationHolder) {
+        if (FirResolution.enabled) {
+            annotateFir(element, holder)
+            return
+        }
+
+        val textRange = element.range
+        val toRemove = mutableSetOf<Diagnostic>()
+        set.keys.forEach { diagnostic ->
+            if (textRange.contains(diagnostic.psiElement.range)) {
+                annotateElement(diagnostic.psiElement, holder, setOf(diagnostic), true)
+                toRemove += diagnostic
+            }
+        }
+        toRemove.forEach { set.remove(it) }
+
+        val function = element.parentOfType<KtFunction>()
+        if (function != null && !highlightingState.containsKey(function)) {
+            highlightingState[function] = HighlightingState.STARTED
+            Thread {
+                function.analyzeElementWithAllCompilerChecks(
+                    { diagnostic ->
+                        set[diagnostic] = Unit
+                    })
+                highlightingState[function] = HighlightingState.FINISHED
+            }.run()
+            return
+        } else if (function != null && highlightingState[function] == HighlightingState.FINISHED) {
+            //todo: ?
+        }
+
+        val file = element as? KtFile ?: return
+
+        if (!KotlinHighlightingUtil.shouldHighlightFile(file)) return
+
+        annotateFile(file, holder)
+    }
+
+    private fun annotateFir(element: PsiElement, holder: AnnotationHolder) {
         val file = element.containingFile as? KtFile ?: return
 
-        if (!KotlinHighlightingUtil.shouldHighlight(file)) return
+        if (!KotlinHighlightingUtil.shouldHighlightFile(file)) return
 
-        if (FirResolution.enabled) {
-            annotateElementUsingFrontendIR(element, file, holder)
-        } else {
-            if (element != file) return
-            annotateFile(file, holder)
-        }
+        annotateElementUsingFrontendIR(element, file, holder)
     }
 
     private fun annotateFile(
         file: KtFile,
         holder: AnnotationHolder
     ) {
-        // println("Just started: " + (System.currentTimeMillis())) //todo: remove me
-
         val analysisResult = file.analyzeWithAllCompilerChecks(
             { diagnostic ->
                 annotateElement(diagnostic.psiElement, holder, setOf(diagnostic), true)
-                // println("Diagnostic: " + (System.currentTimeMillis())) //todo: remove me
             })
         if (analysisResult.isError()) {
             throw ProcessCanceledException(analysisResult.error)
@@ -87,7 +127,7 @@ open class KotlinPsiChecker : Annotator, HighlightRangeExtension {
         val diagnostics = bindingContext.diagnostics
         val afterAnalysisVisitor = getAfterAnalysisVisitor(holder, bindingContext)
 
-        val visitor = object : KtTreeVisitorVoid() {
+        val annotatorVisitor = object : KtTreeVisitorVoid() {
             override fun visitKtElement(element: KtElement) {
                 afterAnalysisVisitor.forEach { visitor -> element.accept(visitor) }
                 annotateElement(element, holder, diagnostics)
@@ -95,19 +135,26 @@ open class KotlinPsiChecker : Annotator, HighlightRangeExtension {
             }
         }
 
-        visitor.visitKtFile(file)
+        annotatorVisitor.visitKtFile(file)
 
         if (TargetPlatformDetector.getPlatform(file).isJvm()) {
-            val otherDiagnostics = when (file) {
-                //is KtDeclaration -> element.analyzeWithContent() //todo:
-                is KtFile -> file.analyzeWithContent()
-                else -> throw AssertionError("DuplicateJvmSignatureAnnotator: should not get here! Element: ${file.text}")
-            }.diagnostics
-
             val moduleScope = file.getModuleInfo().contentScope()
-            val diagnostics = getJvmSignatureDiagnostics(file, otherDiagnostics, moduleScope) ?: return
 
-            KotlinPsiChecker().annotateElement(file, holder, diagnostics)
+            val duplicationDiagnosticsVisitor = object : KtTreeVisitorVoid() {
+                override fun visitKtElement(element: KtElement) {
+                    val otherDiagnostics = when (element) {
+                        is KtDeclaration -> element.analyzeWithContent() //todo:
+                        is KtFile -> element.analyzeWithContent()
+                        else -> return
+                    }.diagnostics
+
+                    annotateElement(
+                        file, holder, getJvmSignatureDiagnostics(element, otherDiagnostics, moduleScope) ?: return
+                    )
+                }
+            }
+
+            duplicationDiagnosticsVisitor.visitKtFile(file)
         }
     }
 

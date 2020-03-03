@@ -24,6 +24,6 @@ class KotlinChangeLocalityDetector : ChangeLocalityDetector {
     override fun getChangeHighlightingDirtyScopeFor(element: PsiElement): PsiElement? {
         // in some cases it returns a bit wider scope for the element as it is not possible to track changes here
         // e.g.: delete a space in expression `foo( )` results to entire expression `foo()`
-        return null //getInsideCodeBlockModificationDirtyScope(element)
+        return getInsideCodeBlockModificationDirtyScope(element)
     }
 }

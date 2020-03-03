@@ -34,7 +34,10 @@ import kotlin.script.experimental.api.ScriptDiagnostic
 object KotlinHighlightingUtil {
     fun shouldHighlight(psiElement: PsiElement): Boolean {
         val ktFile = psiElement.containingFile as? KtFile ?: return false
+        return shouldHighlightFile(ktFile)
+    }
 
+    fun shouldHighlightFile(ktFile: KtFile): Boolean {
         if (ktFile is KtCodeFragment && ktFile.context != null) {
             return true
         }

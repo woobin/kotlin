@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.context.withModule
 import org.jetbrains.kotlin.context.withProject
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.annotations.Annotations
+import org.jetbrains.kotlin.diagnostics.Diagnostic
 import org.jetbrains.kotlin.frontend.di.createContainerForBodyResolve
 import org.jetbrains.kotlin.idea.caches.resolve.CodeFragmentAnalyzer
 import org.jetbrains.kotlin.idea.caches.resolve.util.analyzeControlFlow
@@ -196,7 +197,9 @@ class ResolveElementCache(
         }
     }
 
-    fun resolveToElements(elements: Collection<KtElement>, bodyResolveMode: BodyResolveMode = BodyResolveMode.FULL): BindingContext {
+    fun resolveToElements(
+        elements: Collection<KtElement>, bodyResolveMode: BodyResolveMode = BodyResolveMode.FULL, callback: ((Diagnostic) -> Unit)? = null
+    ): BindingContext {
         val elementsByAdditionalResolveElement: Map<KtElement?, List<KtElement>> = elements.groupBy { findElementOfAdditionalResolve(it) }
 
         val bindingContexts = ArrayList<BindingContext>()

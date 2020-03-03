@@ -162,6 +162,10 @@ fun KtFile.analyzeWithAllCompilerChecks(callback: (Diagnostic) -> Unit, vararg e
     KotlinCacheService.getInstance(project).getResolutionFacade(listOf(this) + extraFiles.toList())
         .analyzeWithAllCompilerChecks(listOf(this), callback)
 
+fun KtElement.analyzeElementWithAllCompilerChecks(callback: (Diagnostic) -> Unit, vararg extraFiles: KtFile): AnalysisResult =
+    KotlinCacheService.getInstance(project).getResolutionFacade(listOf(this) + extraFiles.toList())
+        .analyzeWithAllCompilerChecks(listOf(this), callback)
+
 /**
  * This function is expected to produce the same result as compiler for the given element and its children (including diagnostics,
  * trace slices, descriptors, etc.). For some expression element it actually performs analyze for some parent (usually declaration).
