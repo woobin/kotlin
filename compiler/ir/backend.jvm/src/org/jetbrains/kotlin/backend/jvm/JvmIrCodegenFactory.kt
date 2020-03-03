@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.codegen.PackageCodegenImpl
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.descriptors.PackageFragmentDescriptor
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
+import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.descriptors.WrappedDeclarationDescriptor
 import org.jetbrains.kotlin.ir.util.DeclarationStubGenerator
 import org.jetbrains.kotlin.ir.util.ExternalDependenciesGenerator
@@ -51,7 +52,12 @@ class JvmIrCodegenFactory(private val phaseConfig: PhaseConfig) : CodegenFactory
         val stubGenerator = irProviders.filterIsInstance<DeclarationStubGenerator>().first()
         for (descriptor in symbolTable.wrappedTopLevelCallableDescriptors()) {
             val parentClass = stubGenerator.generateOrGetFacadeClass(descriptor as WrappedDeclarationDescriptor<*>)
-            descriptor.owner.parent = parentClass ?: throw AssertionError("Facade class for ${descriptor.name} not found")
+            val owner = descriptor.owner
+            owner.parent = parentClass ?: throw AssertionError("Facade class for ${descriptor.name} not found")
+            if (owner is IrProperty) {
+                owner.getter?.parent = parentClass
+                owner.setter?.parent = parentClass
+            }
         }
 
         JvmBackendFacade.doGenerateFilesInternal(
