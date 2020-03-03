@@ -45,9 +45,7 @@ class CreateModuleOrTargetPopup private constructor(
             +JvmSinglePlatformModuleConfigurator
             if (allowAndroid) +AndroidSinglePlatformModuleConfigurator
             if (allowSinglepaltformJs) +JsSingleplatformModuleConfigurator
-
-            //todo ios support
-            //if (allowIos) +IOSSinglePlatformModuleConfigurator
+            if (allowIos) +IOSSinglePlatformModuleConfigurator
         }
     ) {
         override fun getIconFor(value: ModuleConfigurator): Icon = value.icon
