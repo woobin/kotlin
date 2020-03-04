@@ -58,11 +58,7 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 open class KotlinPsiChecker : Annotator, HighlightRangeExtension {
-    private enum class HighlightingState {
-        STARTED, FINISHED
-    }
-
-    private var highlightingState: ConcurrentHashMap<KtFunction, HighlightingState> = ConcurrentHashMap()
+    private var highlightingStarted = false
     private var set: ConcurrentHashMap<Diagnostic, Unit> = ConcurrentHashMap()
 
     override fun annotate(element: PsiElement, holder: AnnotationHolder) {
@@ -81,19 +77,19 @@ open class KotlinPsiChecker : Annotator, HighlightRangeExtension {
         }
         toRemove.forEach { set.remove(it) }
 
-        val function = element.parentOfType<KtFunction>()
-        if (function != null && !highlightingState.containsKey(function)) {
-            highlightingState[function] = HighlightingState.STARTED
+        if (!highlightingStarted) {
+            highlightingStarted = true
+            val file = element.containingFile as? KtFile ?: return
             Thread {
-                function.analyzeElementWithAllCompilerChecks(
+                val start = System.currentTimeMillis()
+                file.analyzeElementWithAllCompilerChecks(
                     { diagnostic ->
                         set[diagnostic] = Unit
                     })
-                highlightingState[function] = HighlightingState.FINISHED
+
+                println("Highlighting time" + ": " + (System.currentTimeMillis() - start))
             }.run()
             return
-        } else if (function != null && highlightingState[function] == HighlightingState.FINISHED) {
-            //todo: ?
         }
 
         val file = element as? KtFile ?: return
