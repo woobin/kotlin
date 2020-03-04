@@ -23,6 +23,7 @@ import com.intellij.openapi.util.TextRange
 import org.jetbrains.kotlin.idea.core.util.range
 import org.jetbrains.kotlin.idea.inspections.IntentionBasedInspection
 import org.jetbrains.kotlin.idea.refactoring.getLineNumber
+import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtQualifiedExpression
 import org.jetbrains.kotlin.psi.KtValueArgumentList
@@ -43,7 +44,7 @@ class RemoveEmptyParenthesesFromLambdaCallIntention : SelfTargetingRangeIntentio
     override fun applicabilityRange(element: KtValueArgumentList): TextRange? {
         if (element.arguments.isNotEmpty()) return null
         val parent = element.parent as? KtCallExpression ?: return null
-        if (parent.calleeExpression?.text == "suspend") return null
+        if (parent.calleeExpression?.text == KtTokens.SUSPEND_KEYWORD.value) return null
         val singleLambdaArgument = parent.lambdaArguments.singleOrNull() ?: return null
         if (element.getLineNumber(start = false) != singleLambdaArgument.getLineNumber(start = true)) return null
         val prev = element.getPrevSiblingIgnoringWhitespaceAndComments()
