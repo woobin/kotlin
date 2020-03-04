@@ -20,6 +20,18 @@ open class CocoapodsExtension(private val project: Project) {
         get() = project.version.toString()
 
     /**
+     * Configure relative path to the Podfile.
+     */
+    @Input
+    lateinit var podfile: String
+
+    /**
+     * Configure relative path to the .xcodeproj file.
+     */
+    @Input
+    lateinit var xcodeproj: String
+
+    /**
      * Configure authors of the pod built from this project.
      */
     @Optional
