@@ -263,11 +263,9 @@ fun usefulDeclarations(roots: Iterable<IrDeclaration>, context: JsIrBackendConte
                 ) {
                     declaration.enqueue()
                 }
-            }
 
-            // TODO is this needed?
-            for (declaration in ArrayList(klass.declarations)) {
-                // TODO this is a hack.
+                // A hack to enforce property lowering.
+                // Until a getter is accessed it doesn't get moved to the declaration list.
                 if (declaration is IrProperty) {
                     declaration.getter?.let { if (it.overridesUsefulFunction()) it.enqueue() }
                     declaration.setter?.let { if (it.overridesUsefulFunction()) it.enqueue() }
