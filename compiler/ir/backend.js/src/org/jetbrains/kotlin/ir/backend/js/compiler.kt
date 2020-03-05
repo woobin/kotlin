@@ -52,7 +52,7 @@ fun compile(
     generateDceJs: Boolean = false,
     dceDriven: Boolean = false
 ): CompilerResult {
-    stageController = object : StageController {}
+    stageController = StageController()
 
     val (moduleFragment: IrModuleFragment, dependencyModules, irBuiltIns, symbolTable, deserializer) =
         loadIr(project, mainModule, analyzer, configuration, allDependencies, friendDependencies)
@@ -99,9 +99,7 @@ fun compile(
         eliminateDeadDeclarations(irFiles, context, mainFunction)
 
         // TODO investigate whether this is needed anymore
-        stageController = object : StageController {
-            override val currentStage: Int = controller.currentStage
-        }
+        stageController = StageController(controller.currentStage)
 
         moduleFragment.replaceFilesWith(irFiles)
         val transformer = IrModuleToJsTransformer(context, mainFunction, mainArguments)
