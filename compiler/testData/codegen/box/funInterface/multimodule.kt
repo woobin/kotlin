@@ -1,7 +1,6 @@
 // !LANGUAGE: +NewInference +FunctionalInterfaceConversion +SamConversionPerArgument +SamConversionForKotlinFunctions
 
 // IGNORE_BACKEND_FIR: JVM_IR
-// SKIP_DCE_DRIVEN
 
 // MODULE: m1
 // FILE: m1.kt
