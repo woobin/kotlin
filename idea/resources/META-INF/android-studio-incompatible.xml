@@ -1,0 +1,4 @@
+<idea-plugin>
+  <!-- Marking as incompatible with AS by requiring IDEA -->
+  <depends>com.intellij.modules.idea</depends>
+</idea-plugin>
