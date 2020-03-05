@@ -53,7 +53,7 @@ class IrModuleToJsTransformer(
         val jsCode = if (fullJs) generateWrappedModuleBody(module, exportedModule, namer) else null
 
         val dceJsCode = if (dceJs) {
-            eliminateDeadDeclarations(module, backendContext, mainFunction)
+            eliminateDeadDeclarations(module.files, backendContext, mainFunction)
             // Use a fresh namer for DCE so that we could compare the result with DCE-driven
             // TODO: is this mode relevant for scripting? If yes, refactor so that the external name tables are used here when needed.
             val namer = NameTables(emptyList())

@@ -20,17 +20,17 @@ import org.jetbrains.kotlin.ir.visitors.*
 import java.util.*
 
 fun eliminateDeadDeclarations(
-    module: IrModuleFragment,
+    files: Collection<IrFile>,
     context: JsIrBackendContext,
     mainFunction: IrSimpleFunction?
 ) {
 
-    val allRoots = stageController.withInitialIr { buildRoots(module, context, mainFunction) }
+    val allRoots = stageController.withInitialIr { buildRoots(files, context, mainFunction) }
 
     val usefulDeclarations = usefulDeclarations(allRoots, context)
 
     stageController.unrestrictDeclarationListsAccess {
-        removeUselessDeclarations(module, usefulDeclarations)
+        removeUselessDeclarations(files, usefulDeclarations)
     }
 }
 
@@ -38,9 +38,9 @@ private fun IrField.isConstant(): Boolean {
     return correspondingPropertySymbol?.owner?.isConst ?: false
 }
 
-private fun buildRoots(module: IrModuleFragment, context: JsIrBackendContext, mainFunction: IrSimpleFunction?): Iterable<IrDeclaration> {
+private fun buildRoots(files: Collection<IrFile>, context: JsIrBackendContext, mainFunction: IrSimpleFunction?): Iterable<IrDeclaration> {
     val rootDeclarations =
-        (module.files + context.packageLevelJsModules + context.externalPackageFragment.values).flatMapTo(mutableListOf()) { file ->
+        (files + context.packageLevelJsModules + context.externalPackageFragment.values).flatMapTo(mutableListOf()) { file ->
             file.declarations.flatMap { if (it is IrProperty) listOfNotNull(it.backingField, it.getter, it.setter) else listOf(it) }
                 .filter {
                     it is IrField && it.initializer != null && it.fqNameWhenAvailable?.asString()?.startsWith("kotlin") != true
@@ -63,8 +63,8 @@ private fun buildRoots(module: IrModuleFragment, context: JsIrBackendContext, ma
     return rootDeclarations
 }
 
-private fun removeUselessDeclarations(module: IrModuleFragment, usefulDeclarations: Set<IrDeclaration>) {
-    module.files.forEach {
+private fun removeUselessDeclarations(files: Collection<IrFile>, usefulDeclarations: Set<IrDeclaration>) {
+    files.forEach {
         it.acceptVoid(object : IrElementVisitorVoid {
             override fun visitElement(element: IrElement) {
                 element.acceptChildrenVoid(this)

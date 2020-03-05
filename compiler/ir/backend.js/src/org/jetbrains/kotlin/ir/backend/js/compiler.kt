@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsManglerIr
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.IrModuleToJsTransformer
 import org.jetbrains.kotlin.ir.backend.js.utils.JsMainFunctionDetector
 import org.jetbrains.kotlin.ir.backend.js.utils.NameTables
+import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.StageController
 import org.jetbrains.kotlin.ir.declarations.stageController
@@ -63,40 +64,29 @@ fun compile(
         irBuiltIns.knownBuiltins.forEach { it.acceptVoid(mangleChecker) }
     }
 
-    val moduleDescriptor = moduleFragment.descriptor
-
-    val mainFunction = JsMainFunctionDetector.getMainFunctionOrNull(moduleFragment)
-
-    val context = JsIrBackendContext(moduleDescriptor, irBuiltIns, symbolTable, moduleFragment, exportedDeclarations, configuration)
-
-    // Load declarations referenced during `context` initialization
-    dependencyModules.forEach {
-        val irProviders = generateTypicalIrProviderList(it.descriptor, irBuiltIns, symbolTable, deserializer)
-        ExternalDependenciesGenerator(symbolTable, irProviders).generateUnboundSymbolsAsDependencies()
-    }
-
     val allModules = when (mainModule) {
         is MainModule.SourceFiles -> dependencyModules + listOf(moduleFragment)
         is MainModule.Klib -> dependencyModules
     }
 
-    val irFiles = allModules.flatMap { it.files }
-
-    moduleFragment.files.clear()
-    moduleFragment.files += irFiles
-
-    val irProvidersWithoutDeserializer = generateTypicalIrProviderList(moduleDescriptor, irBuiltIns, symbolTable)
-    // Create stubs
-    ExternalDependenciesGenerator(symbolTable, irProvidersWithoutDeserializer).generateUnboundSymbolsAsDependencies()
-    moduleFragment.patchDeclarationParents()
-
+    // Create context and load declarations referenced during `context` initialization
+    val moduleDescriptor = moduleFragment.descriptor
+    val context = JsIrBackendContext(moduleDescriptor, irBuiltIns, symbolTable, moduleFragment, exportedDeclarations, configuration)
+    allModules.forEach {
+        val irProviders = generateTypicalIrProviderList(it.descriptor, irBuiltIns, symbolTable, deserializer)
+        ExternalDependenciesGenerator(symbolTable, irProviders).generateUnboundSymbolsAsDependencies()
+    }
+    allModules.forEach { it.patchDeclarationParents() } // TODO eliminate
     deserializer.finalizeExpectActualLinker()
 
-    moveBodilessDeclarationsToSeparatePlace(context, moduleFragment)
+    val mainFunction = JsMainFunctionDetector.getMainFunctionOrNull(moduleFragment)
+
+    allModules.forEach {
+        moveBodilessDeclarationsToSeparatePlace(context, it)
+    }
 
     if (dceDriven) {
 
-        // TODO we should only generate tests for the current module
         // TODO should be done incrementally
         generateTests(context, moduleFragment)
 
@@ -105,20 +95,30 @@ fun compile(
 
         controller.currentStage = controller.lowerings.size + 1
 
-        eliminateDeadDeclarations(moduleFragment, context, mainFunction)
+        val irFiles = allModules.flatMap { it.files }
+        eliminateDeadDeclarations(irFiles, context, mainFunction)
 
         // TODO investigate whether this is needed anymore
         stageController = object : StageController {
             override val currentStage: Int = controller.currentStage
         }
 
+        moduleFragment.replaceFilesWith(irFiles)
         val transformer = IrModuleToJsTransformer(context, mainFunction, mainArguments)
         return transformer.generateModule(moduleFragment, fullJs = true, dceJs = false)
     } else {
+
+        moduleFragment.replaceFilesWith(allModules.flatMap { it.files })
+
         jsPhases.invokeToplevel(phaseConfig, context, moduleFragment)
         val transformer = IrModuleToJsTransformer(context, mainFunction, mainArguments)
         return transformer.generateModule(moduleFragment, generateFullJs, generateDceJs)
     }
+}
+
+fun IrModuleFragment.replaceFilesWith(irFiles: Collection<IrFile>) {
+    files.clear()
+    files += irFiles
 }
 
 fun generateJsCode(
