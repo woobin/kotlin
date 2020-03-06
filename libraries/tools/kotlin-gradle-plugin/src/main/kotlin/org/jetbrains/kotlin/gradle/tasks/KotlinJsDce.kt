@@ -30,8 +30,10 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinJsDce
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsDceOptions
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsDceOptionsImpl
 import org.jetbrains.kotlin.gradle.logging.GradleKotlinLogger
+import org.jetbrains.kotlin.gradle.tasks.internal.GradleExecutionOperation
 import org.jetbrains.kotlin.gradle.utils.canonicalPathWithoutExtension
 import java.io.File
+import org.jetbrains.kotlin.gradle.utils.isGradleVersionAtLeast
 
 @CacheableTask
 open class KotlinJsDce : AbstractKotlinCompileTool<K2JSDceArguments>(), KotlinJsDce {
@@ -82,11 +84,21 @@ open class KotlinJsDce : AbstractKotlinCompileTool<K2JSDceArguments>(), KotlinJs
 
         val log = GradleKotlinLogger(logger)
         val allArgs = argsArray + outputDirArgs + inputFiles
-        val exitCode = runToolInSeparateProcess(
-            allArgs, K2JSDce::class.java.name, computedCompilerClasspath,
-            log
-        )
-        throwGradleExceptionIfError(exitCode)
+
+        if (isGradleVersionAtLeast(6,0)) {
+            val gradleExecutionOperation = project.objects.newInstance(GradleExecutionOperation::class.java)
+            gradleExecutionOperation.execOperation.javaexec {
+                it.classpath = project.files(computedCompilerClasspath)
+                it.args = allArgs.toList()
+                it.main = K2JSDce::class.java.name
+            }
+        } else {
+            val exitCode = runToolInSeparateProcess(
+                allArgs, K2JSDce::class.java.name, computedCompilerClasspath,
+                log
+            )
+            throwGradleExceptionIfError(exitCode)
+        }
     }
 
     private fun isDceCandidate(file: File): Boolean {
