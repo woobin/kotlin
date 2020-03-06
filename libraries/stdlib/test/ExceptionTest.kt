@@ -5,6 +5,7 @@
 
 package test.exceptions
 
+import test.supportsSuppressedExceptions
 import kotlin.test.*
 
 class ExceptionTest {
@@ -64,6 +65,25 @@ class ExceptionTest {
 
         fromCause?.invoke(cause)?.let { e ->
             assertSame(cause, e.cause)
+        }
+    }
+
+    @Test
+    fun suppressedExceptions() {
+        val e1 = Throwable()
+
+        val c1 = Exception("Suppressed 1")
+        val c2 = Exception("Suppressed 2")
+
+        assertTrue(e1.suppressed.isEmpty())
+
+        e1.addSuppressed(c1)
+        e1.addSuppressed(c2)
+
+        if (supportsSuppressedExceptions) {
+            assertEquals(listOf(c1, c2), e1.suppressed.asList())
+        } else {
+            assertTrue(e1.suppressed.isEmpty())
         }
     }
 

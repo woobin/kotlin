@@ -12,17 +12,30 @@ import kotlin.random.Random
 
 internal open class PlatformImplementations {
 
-    private object ReflectAddSuppressedMethod {
+    private object ReflectThrowable {
         @JvmField
-        public val method: Method? = Throwable::class.java.let { throwableClass ->
-            throwableClass.methods.find {
+        public val addSuppressed: Method?
+        @JvmField
+        public val getSuppressed: Method?
+        @JvmField
+        public val emptyThrowableArray: Array<Throwable> = arrayOf<Throwable>()
+
+        init {
+            val throwableClass = Throwable::class.java
+            addSuppressed = throwableClass.methods.find {
                 it.name == "addSuppressed" && it.parameterTypes.singleOrNull() == throwableClass
             }
+            getSuppressed = throwableClass.methods.find { it.name == "getSuppressed" }
         }
     }
 
     public open fun addSuppressed(cause: Throwable, exception: Throwable) {
-        ReflectAddSuppressedMethod.method?.invoke(cause, exception)
+        ReflectThrowable.addSuppressed?.invoke(cause, exception)
+    }
+
+    public open fun getSuppressed(exception: Throwable): Array<Throwable> {
+        return ReflectThrowable.getSuppressed?.invoke(exception)?.let { it as Array<Throwable> }
+            ?: ReflectThrowable.emptyThrowableArray
     }
 
     public open fun getMatchResultNamedGroup(matchResult: MatchResult, name: String): MatchGroup? {

@@ -21,3 +21,5 @@ internal actual inline fun testOnNonJvm6And7(f: () -> Unit) {
 
 public actual fun testOnJvm(action: () -> Unit) { }
 public actual fun testOnJs(action: () -> Unit) = action()
+
+actual val supportsSuppressedExceptions: Boolean get() = true

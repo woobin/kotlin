@@ -6,6 +6,7 @@
 package test.exceptions
 
 import kotlin.addSuppressed as addSuppressedExtension
+import kotlin.suppressed as suppressedExtension
 import kotlin.test.*
 
 class ExceptionTest {
@@ -15,9 +16,11 @@ class ExceptionTest {
         val e1 = Throwable()
         val e2 = Exception("Suppressed")
 
+        assertTrue(e1.suppressedExtension.isEmpty())
         e1.addSuppressedExtension(e2)
 
         assertSame(e2, e1.suppressed.singleOrNull())
+        assertSame(e2, e1.suppressedExtension.singleOrNull())
     }
 
 }

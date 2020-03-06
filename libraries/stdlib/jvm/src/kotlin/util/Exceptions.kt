@@ -45,4 +45,8 @@ public val Throwable.stackTrace: Array<StackTraceElement>
  * When supported by the platform adds the specified exception to the list of exceptions that were
  * suppressed in order to deliver this exception.
  */
-public fun Throwable.addSuppressed(exception: Throwable) = IMPLEMENTATIONS.addSuppressed(this, exception)
+public actual fun Throwable.addSuppressed(exception: Throwable): Unit =
+    IMPLEMENTATIONS.addSuppressed(this, exception)
+
+public actual val Throwable.suppressed: Array<Throwable>
+    get() = IMPLEMENTATIONS.getSuppressed(this)

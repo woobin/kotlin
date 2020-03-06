@@ -108,3 +108,7 @@ public expect class UninitializedPropertyAccessException : RuntimeException {
     constructor(message: String?, cause: Throwable?)
     constructor(cause: Throwable?)
 }
+
+
+public expect fun Throwable.addSuppressed(exception: Throwable)
+public expect val Throwable.suppressed: Array<Throwable>
