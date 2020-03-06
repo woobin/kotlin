@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -39,6 +39,7 @@ class SerializerForEnumsGenerator(
         val encodeEnum = encoderClass.referenceMethod(CallingConventions.encodeEnum)
         val serialDescGetter = irGet(descriptorGetterSymbol.owner.returnType, irThis(), descriptorGetterSymbol)
 
+        val serializableIrClass = requireNotNull(serializableIrClass) { "Enums do not support external serialization" }
         val ordinalProp = serializableIrClass.properties.single { it.name == Name.identifier("ordinal") }.getter!!
         val getOrdinal = irInvoke(irGet(saveFunc.valueParameters[1]), ordinalProp.symbol)
         val call = irInvoke(irGet(saveFunc.valueParameters[0]), encodeEnum, serialDescGetter, getOrdinal)
@@ -54,6 +55,7 @@ class SerializerForEnumsGenerator(
         val decode = decoderClass.referenceMethod(CallingConventions.decodeEnum)
         val serialDescGetter = irGet(descriptorGetterSymbol.owner.returnType, irThis(), descriptorGetterSymbol)
 
+        val serializableIrClass = requireNotNull(serializableIrClass) { "Enums do not support external serialization" }
         val valuesF = serializableIrClass.functions.single { it.name == DescriptorUtils.ENUM_VALUES }
         val getValues = irInvoke(dispatchReceiver = null, callee = valuesF.symbol)
 
