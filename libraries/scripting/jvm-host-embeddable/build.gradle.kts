@@ -1,5 +1,3 @@
-import org.gradle.jvm.tasks.Jar
-
 description = "Kotlin Scripting JVM host (for using with embeddable compiler)"
 
 plugins { java }
@@ -23,6 +21,6 @@ publish()
 
 noDefaultJar()
 
-runtimeJar(rewriteDefaultJarDepsToShadedCompiler())
+runtimeJar(relocateDefaultJarToEmbeddableCompiler())
 sourcesJar()
 javadocJar()

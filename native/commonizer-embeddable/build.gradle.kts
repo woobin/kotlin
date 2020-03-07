@@ -20,6 +20,6 @@ publish()
 
 noDefaultJar()
 
-runtimeJar(rewriteDefaultJarDepsToShadedCompiler())
+runtimeJar(relocateDefaultJarToEmbeddableCompiler())
 sourcesJar()
 javadocJar()

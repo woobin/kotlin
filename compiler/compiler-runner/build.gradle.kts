@@ -1,6 +1,3 @@
-
-import org.gradle.jvm.tasks.Jar
-
 description = "Compiler runner + daemon client"
 
 plugins {
@@ -29,6 +26,6 @@ sourceSets {
 
 publish()
 
-runtimeJar(rewriteDefaultJarDepsToShadedCompiler())
+runtimeJar(relocateDefaultJarToEmbeddableCompiler())
 sourcesJar()
 javadocJar()

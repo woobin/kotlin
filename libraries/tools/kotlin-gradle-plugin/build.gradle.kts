@@ -67,7 +67,7 @@ dependencies {
     runtime(projectRuntimeJar(":kotlin-scripting-compiler-impl-embeddable"))
     runtime(project(":kotlin-reflect"))
 
-    jarContents(compileOnly(intellijDep()) {
+    embedded(compileOnly(intellijDep()) {
         includeJars("asm-all", "gson", "serviceMessages", rootProject = rootProject)
     })
 
@@ -94,16 +94,7 @@ if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
     configurations.compile.get().exclude("com.android.tools.external.com-intellij", "intellij-core")
 }
 
-runtimeJar(rewriteDefaultJarDepsToShadedCompiler()).configure {
-    dependsOn(jarContents)
-
-    from {
-        jarContents.asFileTree.map {
-            if (it.endsWith(".jar")) zipTree(it) 
-            else it
-        }
-    }
-}
+runtimeJar(relocateDefaultJarToEmbeddableCompiler())
 
 tasks {
     withType<KotlinCompile> {

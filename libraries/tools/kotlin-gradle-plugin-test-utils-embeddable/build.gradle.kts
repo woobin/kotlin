@@ -3,15 +3,11 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-import org.gradle.jvm.tasks.Jar
-
 description = "Shaded test jars from compiler for Gradle integration tests"
 
-plugins { `java` }
-
-val packedJars by configurations.creating
+plugins { 
+    java
+}
 
 val projectsToInclude = listOf(":compiler:tests-common",
                                ":compiler:incremental-compilation-impl",
@@ -20,15 +16,11 @@ val projectsToInclude = listOf(":compiler:tests-common",
 dependencies {
     for (projectName in projectsToInclude) {
         compile(projectTests(projectName)) { isTransitive = false }
-        packedJars(projectTests(projectName)) { isTransitive = false }
+        embedded(projectTests(projectName)) { isTransitive = false }
     }
 
-    packedJars(intellijDep()) { includeJars("idea_rt") }
+    embedded(intellijDep()) { includeJars("idea_rt") }
 
 }
 
-runtimeJar(rewriteDepsToShadedCompiler(
-    tasks.register<ShadowJar>("shadowJar")  {
-        from(packedJars)
-    }
-))
+runtimeJar(relocateDefaultJarToEmbeddableCompiler())

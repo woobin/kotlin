@@ -1,6 +1,3 @@
-
-import org.gradle.jvm.tasks.Jar
-
 description = "Kotlin Android Extensions Compiler"
 
 plugins {
@@ -29,7 +26,7 @@ sourceSets {
 
 publish()
 
-runtimeJar(rewriteDefaultJarDepsToShadedCompiler())
+runtimeJar(relocateDefaultJarToEmbeddableCompiler())
 
 sourcesJar()
 

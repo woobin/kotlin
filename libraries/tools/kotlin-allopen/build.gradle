@@ -34,7 +34,7 @@ jar {
     manifestAttributes(manifest, project)
 }
 
-ArtifactsKt.runtimeJar(project, EmbeddableKt.rewriteDefaultJarDepsToShadedCompiler(project, {}), {})
+ArtifactsKt.runtimeJar(project, EmbeddableKt.relocateDefaultJarToEmbeddableCompiler(project, {}), {})
 
 artifacts {
     archives sourcesJar
