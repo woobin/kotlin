@@ -5,7 +5,13 @@
 
 package org.jetbrains.kotlin.idea.debugger
 
+import com.intellij.openapi.components.ServiceManager
+import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.project.Project
+import org.jetbrains.kotlin.idea.KotlinIconProviderService
 import kotlin.coroutines.Continuation
+import kotlin.properties.ReadOnlyProperty
+import kotlin.reflect.KProperty
 import org.jetbrains.org.objectweb.asm.Type as AsmType
 
 val CONTINUATION_TYPE: AsmType = AsmType.getType(Continuation::class.java)
@@ -14,3 +20,9 @@ val SUSPEND_LAMBDA_CLASSES: List<String> = listOf(
     "kotlin.coroutines.jvm.internal.SuspendLambda",
     "kotlin.coroutines.jvm.internal.RestrictedSuspendLambda"
 )
+
+inline fun <reified T> Project.getService(): T {
+    val service = ServiceManager.getService(this, T::class.java)
+        ?: throw IllegalStateException("Instance of service type ${T::class.java} can't be found. Check if service has been registered.")
+    return service
+}
