@@ -7,14 +7,11 @@ import com.intellij.openapi.ui.popup.util.BaseListPopupStep
 import com.intellij.ui.popup.PopupFactoryImpl
 import org.jetbrains.kotlin.tools.projectWizard.core.buildList
 import org.jetbrains.kotlin.tools.projectWizard.moduleConfigurators.*
-import org.jetbrains.kotlin.tools.projectWizard.plugins.kotlin.ModuleSubType
 import org.jetbrains.kotlin.tools.projectWizard.settings.DisplayableSettingItem
-import org.jetbrains.kotlin.tools.projectWizard.settings.buildsystem.*
-import org.jetbrains.kotlin.tools.projectWizard.settings.fullText
-import org.jetbrains.kotlin.tools.projectWizard.wizard.ui.asHtml
+import org.jetbrains.kotlin.tools.projectWizard.settings.buildsystem.Module
+import org.jetbrains.kotlin.tools.projectWizard.settings.buildsystem.ModuleKind
 import org.jetbrains.kotlin.tools.projectWizard.wizard.ui.htmlText
 import org.jetbrains.kotlin.tools.projectWizard.wizard.ui.icon
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import javax.swing.Icon
 
 class CreateModuleOrTargetPopup private constructor(
