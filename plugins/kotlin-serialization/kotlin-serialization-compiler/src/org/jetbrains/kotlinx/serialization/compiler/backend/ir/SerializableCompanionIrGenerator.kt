@@ -1,3 +1,8 @@
+/*
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
+ */
+
 package org.jetbrains.kotlinx.serialization.compiler.backend.ir
 
 import org.jetbrains.kotlin.descriptors.*
@@ -10,8 +15,6 @@ import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
-import org.jetbrains.kotlin.ir.types.impl.IrStarProjectionImpl
-import org.jetbrains.kotlin.ir.types.impl.IrTypeProjectionImpl
 import org.jetbrains.kotlin.ir.types.impl.makeTypeProjection
 import org.jetbrains.kotlin.ir.util.patchDeclarationParents
 import org.jetbrains.kotlin.ir.util.referenceFunction
@@ -19,6 +22,7 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.calls.components.isVararg
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
 import org.jetbrains.kotlin.resolve.descriptorUtil.module
 import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlinx.serialization.compiler.backend.common.SerializableCompanionCodegen
@@ -58,12 +62,18 @@ class SerializableCompanionIrGenerator(
                 Name.identifier(SerialEntityNames.ANNOTATION_MARKER_CLASS)
             )
         ) ?: return
+
+        val irSerializableClass = compilerContext.symbolTable.referenceClass(serializableDescriptor).takeIf { it.isBound }?.owner ?: return
+        val serializableWithAlreadyPresent = irSerializableClass.annotations.any {
+            it.symbol.descriptor.constructedClass.fqNameSafe == annotationMarkerClass.fqNameSafe
+        }
+        if (serializableWithAlreadyPresent) return
+
         val annotationCtor = requireNotNull(annotationMarkerClass.unsubstitutedPrimaryConstructor?.let {
             compilerContext.symbolTable.referenceConstructor(it)
         })
 
         val annotationType = annotationMarkerClass.defaultType.toIrType()
-        val irSerializableClass = compilerContext.symbolTable.referenceClass(serializableDescriptor).owner
         val annotationCtorCall = IrConstructorCallImpl.fromSymbolDescriptor(startOffset, endOffset, annotationType, annotationCtor).apply {
             val serializerType = serializer.toSimpleType(false)
             putValueArgument(
