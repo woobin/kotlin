@@ -59,7 +59,7 @@ class DebugInfoDiagnosticFactory1 : DiagnosticFactory1<PsiElement, String>,
 
     protected constructor(name: String, severity: Severity, withExplicitDefinitionOnly: Boolean) : super(
         severity,
-        PositioningStrategies.DEFAULT,
+        PositioningStrategies.DEFAULT
     ) {
         this.name = name
         this.withExplicitDefinitionOnly = withExplicitDefinitionOnly
@@ -69,12 +69,12 @@ class DebugInfoDiagnosticFactory1 : DiagnosticFactory1<PsiElement, String>,
         val EXPRESSION_TYPE = create(
             "EXPRESSION_TYPE",
             Severity.INFO,
-            true,
+            true
         )
         val AS_CALL = create(
             "AS_CALL",
             Severity.INFO,
-            true,
+            true
         )
 
         fun create(name: String, severity: Severity): DebugInfoDiagnosticFactory1 {
