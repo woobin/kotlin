@@ -236,7 +236,7 @@ class ExpressionsConverter(
                     name = conventionCallName ?: operationTokenName.nameAsSafeName()
                 }
                 explicitReceiver = leftArgAsFir
-                arguments += rightArgAsFir
+                argumentList = buildUnaryArgumentList(rightArgAsFir)
             }
         } else {
             val firOperation = operationToken.toFirOperation()
@@ -246,8 +246,7 @@ class ExpressionsConverter(
                 buildOperatorCall {
                     source = binaryExpression.toFirSourceElement()
                     operation = firOperation
-                    arguments += leftArgAsFir
-                    arguments += rightArgAsFir
+                    argumentList = buildBinaryArgumentList(leftArgAsFir, rightArgAsFir)
                 }
             }
         }
@@ -277,7 +276,7 @@ class ExpressionsConverter(
             source = binaryExpression.toFirSourceElement()
             operation = operationTokenName.toFirOperation()
             conversionTypeRef = firType
-            arguments += leftArgAsFir
+            argumentList = buildUnaryArgumentList(leftArgAsFir)
         }
     }
 
@@ -325,7 +324,7 @@ class ExpressionsConverter(
             operationToken == EXCLEXCL -> {
                 buildCheckNotNullCall {
                     source = unaryExpression.toFirSourceElement()
-                    arguments += getAsFirExpression<FirExpression>(argument, "No operand")
+                    argumentList = buildUnaryArgumentList(getAsFirExpression<FirExpression>(argument, "No operand"))
                 }
 
             }
@@ -342,6 +341,7 @@ class ExpressionsConverter(
                     source = unaryExpression.toFirSourceElement()
                     calleeReference = buildSimpleNamedReference { name = conventionCallName }
                     explicitReceiver = getAsFirExpression(argument, "No operand")
+                    argumentList = FirEmptyArgumentList()
                 }
             }
             else -> {
@@ -349,7 +349,7 @@ class ExpressionsConverter(
                 buildOperatorCall {
                     source = unaryExpression.toFirSourceElement()
                     operation = firOperation
-                    arguments += getAsFirExpression<FirExpression>(argument, "No operand")
+                    argumentList = buildUnaryArgumentList(getAsFirExpression<FirExpression>(argument, "No operand"))
                 }
             }
         }
@@ -388,7 +388,7 @@ class ExpressionsConverter(
 
         return buildGetClassCall {
             source = classLiteralExpression.toFirSourceElement()
-            arguments += firReceiverExpression
+            argumentList = buildUnaryArgumentList(firReceiverExpression)
         }
     }
 
@@ -642,10 +642,11 @@ class ExpressionsConverter(
             buildOperatorCall {
                 source = whenCondition.toFirSourceElement()
                 operation = FirOperation.EQ
-                arguments += buildWhenSubjectExpression {
-                    whenSubject = subject
-                }
-                arguments += firExpression
+                argumentList = buildBinaryArgumentList(
+                    buildWhenSubjectExpression {
+                        whenSubject = subject
+                    }, firExpression
+                )
             }
 
         } else {
@@ -708,7 +709,7 @@ class ExpressionsConverter(
             source = whenCondition.toFirSourceElement()
             operation = firOperation
             conversionTypeRef = firType
-            arguments += subjectExpression
+            argumentList = buildUnaryArgumentList(subjectExpression)
         }
     }
 
@@ -732,8 +733,10 @@ class ExpressionsConverter(
                 name = if (getArgument == null) OperatorNameConventions.GET else OperatorNameConventions.SET
             }
             explicitReceiver = firExpression
-            arguments += indices
-            getArgument?.let { arguments += it }
+            argumentList = buildArgumentList {
+                arguments += indices
+                getArgument?.let { arguments += it }
+            }
         }
     }
 
@@ -748,7 +751,9 @@ class ExpressionsConverter(
 
         return buildArrayOfCall {
             source = expression.toFirSourceElement()
-            arguments += firExpressionList
+            argumentList = buildArgumentList {
+                arguments += firExpressionList
+            }
         }
     }
 
@@ -838,6 +843,7 @@ class ExpressionsConverter(
                 buildFunctionCall {
                     calleeReference = buildSimpleNamedReference { name = Name.identifier("iterator") }
                     explicitReceiver = rangeExpression
+                    argumentList = FirEmptyArgumentList()
                 }
             )
             statements += iteratorVal
@@ -846,6 +852,7 @@ class ExpressionsConverter(
                 condition = buildFunctionCall {
                     calleeReference = buildSimpleNamedReference { name = Name.identifier("hasNext") }
                     explicitReceiver = generateResolvedAccessExpression(null, iteratorVal)
+                    argumentList = FirEmptyArgumentList()
                 }
             }.configure {
                 // NB: just body.toFirBlock() isn't acceptable here because we need to add some statements
@@ -860,6 +867,7 @@ class ExpressionsConverter(
                         buildFunctionCall {
                             calleeReference = buildSimpleNamedReference { name = Name.identifier("next") }
                             explicitReceiver = generateResolvedAccessExpression(null, iteratorVal)
+                            argumentList = FirEmptyArgumentList()
                         },
                         parameter!!.firValueParameter.returnTypeRef
                     )

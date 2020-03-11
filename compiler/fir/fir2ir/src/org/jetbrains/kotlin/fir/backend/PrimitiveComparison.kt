@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.fir.backend
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.expressions.FirComparisonExpression
 import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.resolve.firSymbolProvider
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.utils.addToStdlib.firstNotNullResult
 
@@ -24,7 +23,7 @@ val FirComparisonExpression.left: FirExpression
     get() = compareToCall.explicitReceiver ?: error("There should be an explicit receiver for ${compareToCall.render()}")
 
 val FirComparisonExpression.right: FirExpression
-    get() = compareToCall.arguments.getOrNull(0) ?: error("There should be a first arg for ${compareToCall.render()}")
+    get() = compareToCall.argumentList.arguments.getOrNull(0) ?: error("There should be a first arg for ${compareToCall.render()}")
 
 fun FirComparisonExpression.inferPrimitiveNumericComparisonInfo(): PrimitiveConeNumericComparisonInfo? {
     val leftType = left.typeRef.coneTypeSafe<ConeKotlinType>() ?: return null

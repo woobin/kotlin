@@ -166,8 +166,9 @@ fun FirExpression.generateNotNullOrOther(
             condition = buildOperatorCall {
                 source = baseSource
                 operation = FirOperation.EQ
-                arguments += subjectExpression
-                arguments += buildConstExpression(baseSource, FirConstKind.Null, null)
+                argumentList = buildBinaryArgumentList(
+                    subjectExpression, buildConstExpression(baseSource, FirConstKind.Null, null)
+                )
             }
             result = buildSingleExpressionBlock(other)
         }
@@ -209,8 +210,9 @@ internal fun KtWhenCondition.toFirWhenCondition(
             buildOperatorCall {
                 source = expression?.toFirSourceElement()
                 operation = FirOperation.EQ
-                arguments += firSubjectExpression
-                arguments += expression.convert("No expression in condition with expression")
+                argumentList = buildBinaryArgumentList(
+                    firSubjectExpression, expression.convert("No expression in condition with expression")
+                )
             }
         }
         is KtWhenConditionInRange -> {
@@ -222,7 +224,7 @@ internal fun KtWhenCondition.toFirWhenCondition(
                 source = typeReference?.toFirSourceElement()
                 operation = if (isNegated) FirOperation.NOT_IS else FirOperation.IS
                 conversionTypeRef = typeReference.toFirOrErrorTypeRef()
-                arguments += firSubjectExpression
+                argumentList = buildUnaryArgumentList(firSubjectExpression)
             }
         }
         else -> {
@@ -268,6 +270,7 @@ fun FirExpression.generateContainsOperation(
             name = OperatorNameConventions.NOT
         }
         explicitReceiver = containsCall
+        argumentList = FirEmptyArgumentList()
     }
 }
 
@@ -313,7 +316,7 @@ private fun FirExpression.createConventionCall(
             name = conventionName
         }
         explicitReceiver = this@createConventionCall
-        arguments += argument
+        argumentList = buildUnaryArgumentList(argument)
     }
 }
 
@@ -362,6 +365,7 @@ internal fun generateDestructuringBlock(
                     source = entrySource
                     explicitReceiver = generateResolvedAccessExpression(entrySource, container)
                     componentIndex = index + 1
+                    argumentList = FirEmptyArgumentList()
                 }
                 this.isVar = isVar
                 isLocal = true
@@ -407,6 +411,7 @@ fun FirPropertyBuilder.generateAccessorsByDelegate(
     val delegateFieldSymbol = FirDelegateFieldSymbol<FirProperty>(symbol.callableId).also {
         this.delegateFieldSymbol = it
     }
+
     fun delegateAccess() = buildQualifiedAccessExpression {
         source = null
         calleeReference = buildDelegateFieldReference {
@@ -437,8 +442,7 @@ fun FirPropertyBuilder.generateAccessorsByDelegate(
             source = null
             name = PROVIDE_DELEGATE
         }
-        arguments += thisRef()
-        arguments += propertyRef()
+        argumentList = buildBinaryArgumentList(thisRef(), propertyRef())
     }
     delegate = delegateBuilder.build()
     if (stubMode) return
@@ -460,8 +464,7 @@ fun FirPropertyBuilder.generateAccessorsByDelegate(
                             source = null
                             name = GET_VALUE
                         }
-                        arguments += thisRef()
-                        arguments += propertyRef()
+                        argumentList = buildBinaryArgumentList(thisRef(), propertyRef())
                     }
                     target = returnTarget
                 }
@@ -493,12 +496,14 @@ fun FirPropertyBuilder.generateAccessorsByDelegate(
                     calleeReference = buildSimpleNamedReference {
                         name = SET_VALUE
                     }
-                    arguments += thisRef()
-                    arguments += propertyRef()
-                    arguments += buildQualifiedAccessExpression {
-                        calleeReference = buildResolvedNamedReference {
-                            name = DELEGATED_SETTER_PARAM
-                            resolvedSymbol = parameter.symbol
+                    argumentList = buildArgumentList {
+                        arguments += thisRef()
+                        arguments += propertyRef()
+                        arguments += buildQualifiedAccessExpression {
+                            calleeReference = buildResolvedNamedReference {
+                                name = DELEGATED_SETTER_PARAM
+                                resolvedSymbol = parameter.symbol
+                            }
                         }
                     }
                 }

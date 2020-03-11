@@ -15,16 +15,12 @@ import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.builder.generateResolvedAccessExpression
 import org.jetbrains.kotlin.fir.declarations.FirVariable
-import org.jetbrains.kotlin.fir.declarations.builder.FirTypeParametersOwnerBuilder
 import org.jetbrains.kotlin.fir.declarations.builder.buildProperty
 import org.jetbrains.kotlin.fir.declarations.impl.FirDeclarationStatusImpl
+import org.jetbrains.kotlin.fir.expressions.FirEmptyArgumentList
 import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.expressions.builder.FirAnnotationCallBuilder
-import org.jetbrains.kotlin.fir.expressions.builder.FirCallBuilder
-import org.jetbrains.kotlin.fir.expressions.builder.buildBlock
-import org.jetbrains.kotlin.fir.expressions.builder.buildComponentCall
+import org.jetbrains.kotlin.fir.expressions.builder.*
 import org.jetbrains.kotlin.fir.lightTree.fir.DestructuringDeclaration
-import org.jetbrains.kotlin.fir.lightTree.fir.TypeConstraint
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.lexer.KtSingleValueToken
 import org.jetbrains.kotlin.lexer.KtTokens
@@ -75,7 +71,11 @@ fun LighterASTNode.isExpression(): Boolean {
 
 fun <T : FirCallBuilder> T.extractArgumentsFrom(container: List<FirExpression>, stubMode: Boolean): T {
     if (!stubMode || this is FirAnnotationCallBuilder) {
-        this.arguments += container
+        argumentList = buildArgumentList {
+            arguments += container
+        }
+    } else {
+        argumentList = FirEmptyArgumentList()
     }
     return this
 }
@@ -120,6 +120,7 @@ fun generateDestructuringBlock(
                 initializer = buildComponentCall {
                     explicitReceiver = generateResolvedAccessExpression(null, container)
                     componentIndex = index + 1
+                    argumentList = FirEmptyArgumentList()
                 }
                 this.isVar = isVar
                 symbol = FirPropertySymbol(entry.name) // TODO?

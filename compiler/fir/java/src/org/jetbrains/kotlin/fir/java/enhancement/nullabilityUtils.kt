@@ -68,7 +68,7 @@ private fun FirAnnotationCall.extractNullabilityFromKnownAnnotations(jsr305State
 }
 
 private fun FirAnnotationCall.extractNullabilityTypeFromArgument(): NullabilityQualifierWithMigrationStatus? {
-    val enumValue = this.arguments.firstOrNull()?.toResolvedCallableSymbol()?.callableId?.callableName
+    val enumValue = this.argumentList.arguments.firstOrNull()?.toResolvedCallableSymbol()?.callableId?.callableName
     // if no argument is specified, use default value: NOT_NULL
         ?: return NullabilityQualifierWithMigrationStatus(NullabilityQualifier.NOT_NULL)
 

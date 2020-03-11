@@ -1553,5 +1553,6 @@ class DeclarationsConverter(
                 false
             )
         }
+        argumentList = FirEmptyArgumentList()
     }
 }

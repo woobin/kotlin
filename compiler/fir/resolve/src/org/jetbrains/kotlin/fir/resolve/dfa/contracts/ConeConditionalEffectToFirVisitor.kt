@@ -47,6 +47,7 @@ private object ConeConditionalEffectToFirVisitor : ConeContractDescriptionVisito
         return buildFunctionCall {
             calleeReference = buildSimpleNamedReference { name = OperatorNameConventions.NOT }
             this.explicitReceiver = explicitReceiver
+            argumentList = FirEmptyArgumentList()
         }
     }
 
@@ -58,6 +59,7 @@ private object ConeConditionalEffectToFirVisitor : ConeContractDescriptionVisito
                 FirOperation.IS
             }
             conversionTypeRef = buildResolvedTypeRef { type = isInstancePredicate.type }
+            argumentList = FirEmptyArgumentList()
         }
     }
 
@@ -69,8 +71,7 @@ private object ConeConditionalEffectToFirVisitor : ConeContractDescriptionVisito
             } else {
                 FirOperation.EQ
             }
-            arguments += argument
-            arguments += createConstNull()
+            argumentList = buildBinaryArgumentList(argument, createConstNull())
         }
     }
 

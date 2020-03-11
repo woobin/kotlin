@@ -89,10 +89,6 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
 
         impl(arraySetCall) {
             parents += modifiableQualifiedAccess
-            default("arguments") {
-                value = "indexes + rValue"
-                withGetter = true
-            }
             default("lValue") {
                 value = "calleeReference"
                 customSetter = "calleeReference = value"
@@ -174,7 +170,7 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
 
         impl(getClassCall) {
             default("argument") {
-                value = "arguments.first()"
+                value = "argumentList.arguments.first()"
                 withGetter = true
             }
         }
