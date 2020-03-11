@@ -56,4 +56,10 @@ class FirResolvedArgumentList(
 ) : FirAbstractArgumentList() {
     override val arguments: List<FirExpression>
         get() = mapping.keys.toList()
+
+    override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
+        for (argument in mapping.keys) {
+            argument.accept(visitor, data)
+        }
+    }
 }
