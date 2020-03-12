@@ -10,7 +10,6 @@ import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyGetter
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertySetter
-import org.jetbrains.kotlin.fir.descriptors.FirModuleDescriptor
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirElseIfTrueCondition
 import org.jetbrains.kotlin.fir.expressions.impl.FirNoReceiverExpression
@@ -34,7 +33,6 @@ import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrFieldImpl
-import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
 import org.jetbrains.kotlin.ir.descriptors.IrBuiltIns
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.*
@@ -44,14 +42,14 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.*
-import org.jetbrains.kotlin.psi2ir.PsiSourceManager
 import java.util.*
 
 class Fir2IrVisitor(
     private val session: FirSession,
-    private val moduleDescriptor: FirModuleDescriptor,
     private val symbolTable: SymbolTable,
-    private val sourceManager: PsiSourceManager,
+    private val declarationStorage: Fir2IrDeclarationStorage,
+    private val converter: Fir2IrConverter,
+    private val typeConverter: Fir2IrTypeConverter,
     override val irBuiltIns: IrBuiltIns,
     fakeOverrideMode: FakeOverrideMode
 ) : FirDefaultVisitor<IrElement, Any?>(), IrGeneratorContextInterface {
@@ -63,93 +61,18 @@ class Fir2IrVisitor(
 
     private val integerApproximator = IntegerLiteralTypeApproximationTransformer(session.firSymbolProvider, session.inferenceContext)
 
-    private val declarationStorage = Fir2IrDeclarationStorage(session, symbolTable, moduleDescriptor)
+    private val conversionScope = Fir2IrConversionScope()
 
-    private val typeConverter = Fir2IrTypeConverter(session, declarationStorage, irBuiltIns).also {
-        declarationStorage.typeConverter = it
-        it.initBuiltinTypes()
-    }
+    private val fakeOverrideGenerator = Fir2IrFakeOverrideGenerator(session, declarationStorage, conversionScope, fakeOverrideMode)
 
     private fun FirTypeRef.toIrType(): IrType = with(typeConverter) { toIrType() }
 
     private fun ConeKotlinType.toIrType(): IrType = with(typeConverter) { toIrType() }
 
-    private val conversionScope = Fir2IrConversionScope()
-
     private fun <T : IrDeclaration> applyParentFromStackTo(declaration: T): T = conversionScope.applyParentFromStackTo(declaration)
-
-    private val fakeOverrideGenerator = Fir2IrFakeOverrideGenerator(session, declarationStorage, conversionScope, fakeOverrideMode)
 
     override fun visitElement(element: FirElement, data: Any?): IrElement {
         TODO("Should not be here: ${element.render()}")
-    }
-
-    fun registerFileAndClasses(file: FirFile) {
-        val irFile = IrFileImpl(
-            sourceManager.getOrCreateFileEntry(file.psi as KtFile),
-            moduleDescriptor.getPackage(file.packageFqName).fragments.first()
-        )
-        declarationStorage.registerFile(file, irFile)
-        file.declarations.forEach {
-            if (it is FirRegularClass) {
-                registerClassAndNestedClasses(it)
-            }
-        }
-    }
-
-    fun processClassHeaders(file: FirFile) {
-        file.declarations.forEach {
-            if (it is FirRegularClass) {
-                processClassAndNestedClassHeaders(it)
-            }
-        }
-    }
-
-    fun processFileAndClassMembers(file: FirFile) {
-        file.declarations.processMembers(declarationStorage.getIrFile(file))
-    }
-
-    private fun registerClassAndNestedClasses(regularClass: FirRegularClass) {
-        declarationStorage.registerIrClass(regularClass)
-        regularClass.declarations.forEach {
-            if (it is FirRegularClass) {
-                registerClassAndNestedClasses(it)
-            }
-        }
-    }
-
-    private fun processClassAndNestedClassHeaders(regularClass: FirRegularClass) {
-        declarationStorage.processClassHeader(regularClass)
-        regularClass.declarations.forEach {
-            if (it is FirRegularClass) {
-                processClassAndNestedClassHeaders(it)
-            }
-        }
-    }
-
-    private fun List<FirDeclaration>.processMembers(parent: IrDeclarationParent) {
-        for (declaration in this) {
-            when (declaration) {
-                is FirRegularClass -> {
-                    declaration.declarations.processMembers(declarationStorage.getCachedIrClass(declaration)!!)
-                }
-                is FirSimpleFunction -> {
-                    declarationStorage.createIrFunction(declaration, parent)
-                }
-                is FirProperty -> {
-                    declarationStorage.createIrProperty(declaration, parent)
-                }
-                is FirConstructor -> {
-                    declarationStorage.createIrConstructor(declaration, parent)
-                }
-                is FirAnonymousInitializer, is FirTypeAlias -> {
-                    // DO NOTHING
-                }
-                else -> {
-                    throw AssertionError("Unexpected member: ${declaration::class}")
-                }
-            }
-        }
     }
 
     override fun visitFile(file: FirFile, data: Any?): IrFile {
@@ -219,9 +142,11 @@ class Fir2IrVisitor(
     }
 
     override fun visitRegularClass(regularClass: FirRegularClass, data: Any?): IrElement {
-        return conversionScope.withParent(
-            applyParentFromStackTo(declarationStorage.getIrClass(regularClass))
-        ) {
+        if (regularClass.visibility == Visibilities.LOCAL) {
+            declarationStorage.createIrClass(regularClass, conversionScope.parentFromStack(), exactlySourceClass = true)
+        }
+        val irClass = declarationStorage.getCachedIrClass(regularClass)!!
+        return conversionScope.withParent(irClass) {
             setClassContent(regularClass)
         }
     }
@@ -888,22 +813,22 @@ class Fir2IrVisitor(
     }
 
     override fun visitAnonymousObject(anonymousObject: FirAnonymousObject, data: Any?): IrElement {
-        val anonymousClass = declarationStorage.getIrAnonymousObject(anonymousObject)
-        conversionScope.withParent(applyParentFromStackTo(anonymousClass)) {
+        val irAnonymousObject = declarationStorage.createIrAnonymousObject(anonymousObject, irParent = conversionScope.parentFromStack())
+        conversionScope.withParent(irAnonymousObject) {
             setClassContent(anonymousObject)
         }
-        val anonymousClassType = anonymousClass.thisReceiver!!.type
+        val anonymousClassType = irAnonymousObject.thisReceiver!!.type
         return anonymousObject.convertWithOffsets { startOffset, endOffset ->
             IrBlockImpl(
                 startOffset, endOffset, anonymousClassType, IrStatementOrigin.OBJECT_LITERAL,
                 listOf(
-                    anonymousClass,
+                    irAnonymousObject,
                     IrConstructorCallImpl.fromSymbolOwner(
                         startOffset,
                         endOffset,
                         anonymousClassType,
-                        anonymousClass.constructors.first().symbol,
-                        anonymousClass.typeParameters.size,
+                        irAnonymousObject.constructors.first().symbol,
+                        irAnonymousObject.typeParameters.size,
                         origin = IrStatementOrigin.OBJECT_LITERAL
                     )
                 )

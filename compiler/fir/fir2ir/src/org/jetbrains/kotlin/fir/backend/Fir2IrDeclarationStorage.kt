@@ -250,16 +250,16 @@ class Fir2IrDeclarationStorage(
         }
     }
 
-    private fun createIrClass(klass: FirClass<*>, exactlySourceClass: Boolean = false): IrClass {
+    fun createIrClass(klass: FirClass<*>, parent: IrDeclarationParent? = null, exactlySourceClass: Boolean = false): IrClass {
         // NB: klass can be either FirRegularClass or FirAnonymousObject
         if (klass is FirAnonymousObject) {
-            return createIrAnonymousObject(klass)
+            return createIrAnonymousObject(klass, irParent = parent)
         }
         val regularClass = klass as FirRegularClass
         val origin =
             if (exactlySourceClass || firProvider.getFirClassifierContainerFileIfAny(klass.symbol) != null) IrDeclarationOrigin.DEFINED
             else IrDeclarationOrigin.IR_EXTERNAL_DECLARATION_STUB
-        val irClass = registerIrClass(regularClass, origin)
+        val irClass = registerIrClass(regularClass, parent, origin)
         processClassHeader(regularClass, irClass)
         return irClass
     }
@@ -270,7 +270,11 @@ class Fir2IrDeclarationStorage(
         return irClass
     }
 
-    fun registerIrClass(regularClass: FirRegularClass, origin: IrDeclarationOrigin = IrDeclarationOrigin.DEFINED): IrClass {
+    fun registerIrClass(
+        regularClass: FirRegularClass,
+        parent: IrDeclarationParent? = null,
+        origin: IrDeclarationOrigin = IrDeclarationOrigin.DEFINED
+    ): IrClass {
         val descriptor = WrappedClassDescriptor()
         val visibility = regularClass.visibility
         val modality = if (regularClass.classKind == ClassKind.ENUM_CLASS) {
@@ -301,6 +305,9 @@ class Fir2IrDeclarationStorage(
                 }
             }
         }
+        if (parent != null) {
+            irClass.parent = parent
+        }
         if (regularClass.visibility == Visibilities.LOCAL) {
             localStorage.putLocalClass(regularClass, irClass)
         } else {
@@ -310,14 +317,14 @@ class Fir2IrDeclarationStorage(
     }
 
     fun getIrClass(klass: FirClass<*>, exactlySourceClass: Boolean = true): IrClass {
-        return getCachedIrClass(klass) ?: createIrClass(klass, exactlySourceClass)
+        return getCachedIrClass(klass) ?: createIrClass(klass, exactlySourceClass = exactlySourceClass)
     }
 
-    private fun createIrAnonymousObject(
+    fun createIrAnonymousObject(
         anonymousObject: FirAnonymousObject,
         visibility: Visibility = Visibilities.LOCAL,
         name: Name = Name.special("<no name provided>"),
-        irParent: IrClass? = null
+        irParent: IrDeclarationParent? = null
     ): IrClass {
         val descriptor = WrappedClassDescriptor()
         val origin = IrDeclarationOrigin.DEFINED
@@ -344,18 +351,13 @@ class Fir2IrDeclarationStorage(
         return result
     }
 
-    fun getIrAnonymousObject(
-        anonymousObject: FirAnonymousObject,
-        visibility: Visibility = Visibilities.LOCAL,
-        name: Name = Name.special("<no name provided>"),
-        irParent: IrClass? = null
-    ): IrClass {
+    private fun getIrAnonymousObjectForEnumEntry(anonymousObject: FirAnonymousObject, name: Name, irParent: IrClass?): IrClass {
         localStorage.getLocalClass(anonymousObject)?.let { return it }
-        return createIrAnonymousObject(anonymousObject, visibility, name, irParent)
+        return createIrAnonymousObject(anonymousObject, Visibilities.PRIVATE, name, irParent)
     }
 
     private fun getIrEnumEntryClass(enumEntry: FirEnumEntry, anonymousObject: FirAnonymousObject, irParent: IrClass?): IrClass {
-        return getIrAnonymousObject(anonymousObject, Visibilities.PRIVATE, enumEntry.name, irParent)
+        return getIrAnonymousObjectForEnumEntry(anonymousObject, enumEntry.name, irParent)
     }
 
     private fun getIrTypeParameter(
