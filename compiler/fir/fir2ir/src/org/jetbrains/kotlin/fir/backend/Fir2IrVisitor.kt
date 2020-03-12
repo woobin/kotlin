@@ -150,6 +150,13 @@ class Fir2IrVisitor(
     override fun visitRegularClass(regularClass: FirRegularClass, data: Any?): IrElement {
         if (regularClass.visibility == Visibilities.LOCAL) {
             val irParent = conversionScope.parentFromStack()
+            val irClass = declarationStorage.getCachedIrClass(regularClass)?.apply { this.parent = irParent }
+            if (irClass != null) {
+                converter.processRegisteredLocalClassAndNestedClasses(regularClass, irClass)
+                return conversionScope.withParent(irClass) {
+                    setClassContent(regularClass)
+                }
+            }
             converter.processLocalClassAndNestedClasses(regularClass, irParent)
         }
         val irClass = declarationStorage.getCachedIrClass(regularClass)!!

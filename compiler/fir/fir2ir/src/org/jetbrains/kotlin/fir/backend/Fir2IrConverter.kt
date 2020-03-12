@@ -30,6 +30,16 @@ class Fir2IrConverter(
         processClassMembers(regularClass, irClass)
     }
 
+    fun processRegisteredLocalClassAndNestedClasses(regularClass: FirRegularClass, irClass: IrClass) {
+        regularClass.declarations.forEach {
+            if (it is FirRegularClass) {
+                registerClassAndNestedClasses(it, irClass)
+            }
+        }
+        processClassAndNestedClassHeaders(regularClass)
+        processClassMembers(regularClass, irClass)
+    }
+
     fun registerFileAndClasses(file: FirFile) {
         val irFile = IrFileImpl(
             sourceManager.getOrCreateFileEntry(file.psi as KtFile),
