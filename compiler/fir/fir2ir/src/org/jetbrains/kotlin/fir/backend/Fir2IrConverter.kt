@@ -10,9 +10,7 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.descriptors.FirModuleDescriptor
 import org.jetbrains.kotlin.fir.psi
-import org.jetbrains.kotlin.ir.declarations.IrDeclarationParent
-import org.jetbrains.kotlin.ir.declarations.IrFile
-import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
+import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
 import org.jetbrains.kotlin.ir.declarations.impl.IrModuleFragmentImpl
 import org.jetbrains.kotlin.ir.descriptors.IrBuiltIns
@@ -25,6 +23,12 @@ class Fir2IrConverter(
     private val sourceManager: PsiSourceManager,
     private val declarationStorage: Fir2IrDeclarationStorage
 ) {
+
+    fun processLocalClassAndNestedClasses(regularClass: FirRegularClass, parent: IrDeclarationParent) {
+        val irClass = registerClassAndNestedClasses(regularClass, parent)
+        processClassAndNestedClassHeaders(regularClass)
+        processClassMembers(regularClass, irClass)
+    }
 
     fun registerFileAndClasses(file: FirFile) {
         val irFile = IrFileImpl(
@@ -48,16 +52,35 @@ class Fir2IrConverter(
     }
 
     fun processFileAndClassMembers(file: FirFile) {
-        file.declarations.processMembers(declarationStorage.getIrFile(file))
+        val irFile = declarationStorage.getIrFile(file)
+        for (declaration in file.declarations) {
+            val irDeclaration = processMemberDeclaration(declaration, irFile) ?: continue
+            irFile.declarations += irDeclaration
+        }
     }
 
-    private fun registerClassAndNestedClasses(regularClass: FirRegularClass, parent: IrDeclarationParent) {
+    fun processClassMembers(
+        klass: FirClass<*>,
+        irClass: IrClass = declarationStorage.getCachedIrClass(klass)!!
+    ): IrClass {
+        klass.getPrimaryConstructorIfAny()?.let {
+            irClass.declarations += declarationStorage.createIrConstructor(it, irClass)
+        }
+        for (declaration in klass.declarations) {
+            val irDeclaration = processMemberDeclaration(declaration, irClass) ?: continue
+            irClass.declarations += irDeclaration
+        }
+        return irClass
+    }
+
+    private fun registerClassAndNestedClasses(regularClass: FirRegularClass, parent: IrDeclarationParent): IrClass {
         val irClass = declarationStorage.registerIrClass(regularClass, parent)
         regularClass.declarations.forEach {
             if (it is FirRegularClass) {
                 registerClassAndNestedClasses(it, irClass)
             }
         }
+        return irClass
     }
 
     private fun processClassAndNestedClassHeaders(regularClass: FirRegularClass) {
@@ -69,27 +92,34 @@ class Fir2IrConverter(
         }
     }
 
-    private fun List<FirDeclaration>.processMembers(parent: IrDeclarationParent) {
-        for (declaration in this) {
-            when (declaration) {
-                is FirRegularClass -> {
-                    declaration.declarations.processMembers(declarationStorage.getCachedIrClass(declaration)!!)
-                }
-                is FirSimpleFunction -> {
-                    declarationStorage.createIrFunction(declaration, parent)
-                }
-                is FirProperty -> {
-                    declarationStorage.createIrProperty(declaration, parent)
-                }
-                is FirConstructor -> {
-                    declarationStorage.createIrConstructor(declaration, parent)
-                }
-                is FirAnonymousInitializer, is FirTypeAlias -> {
-                    // DO NOTHING
-                }
-                else -> {
-                    throw AssertionError("Unexpected member: ${declaration::class}")
-                }
+    private fun processMemberDeclaration(declaration: FirDeclaration, parent: IrDeclarationParent): IrDeclaration? {
+        return when (declaration) {
+            is FirRegularClass -> {
+                processClassMembers(declaration)
+            }
+            is FirSimpleFunction -> {
+                declarationStorage.createIrFunction(declaration, parent)
+            }
+            is FirProperty -> {
+                declarationStorage.createIrProperty(declaration, parent)
+            }
+            is FirConstructor -> if (!declaration.isPrimary) {
+                declarationStorage.createIrConstructor(declaration, parent as IrClass)
+            } else {
+                null
+            }
+            is FirEnumEntry -> {
+                declarationStorage.createIrEnumEntry(declaration, parent as IrClass)
+            }
+            is FirAnonymousInitializer -> {
+                declarationStorage.createIrAnonymousInitializer(declaration, parent as IrClass)
+            }
+            is FirTypeAlias -> {
+                // DO NOTHING
+                null
+            }
+            else -> {
+                throw AssertionError("Unexpected member: ${declaration::class}")
             }
         }
     }

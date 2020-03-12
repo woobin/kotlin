@@ -78,8 +78,7 @@ class Fir2IrVisitor(
     override fun visitFile(file: FirFile, data: Any?): IrFile {
         return conversionScope.withParent(declarationStorage.getIrFile(file)) {
             file.declarations.forEach {
-                val irDeclaration = it.toIrDeclaration() ?: return@forEach
-                declarations += irDeclaration
+                it.toIrDeclaration()
             }
 
             annotations = file.annotations.mapNotNull {
@@ -93,9 +92,14 @@ class Fir2IrVisitor(
         return accept(this@Fir2IrVisitor, null) as IrDeclaration
     }
 
+    // ==================================================================================
+
     override fun visitEnumEntry(enumEntry: FirEnumEntry, data: Any?): IrElement {
-        val irEnumEntry = declarationStorage.getIrEnumEntry(enumEntry, irParent = conversionScope.lastClass())
+        val irEnumEntry = declarationStorage.getCachedIrEnumEntry(enumEntry)!!
         val correspondingClass = irEnumEntry.correspondingClass ?: return irEnumEntry
+        declarationStorage.enterScope(irEnumEntry.descriptor)
+        declarationStorage.putEnumEntryClassInScope(enumEntry, correspondingClass)
+        converter.processClassMembers(enumEntry.initializer as FirAnonymousObject, correspondingClass)
         conversionScope.withParent(correspondingClass) {
             setClassContent(enumEntry.initializer as FirAnonymousObject)
             irEnumEntry.initializerExpression = IrExpressionBodyImpl(
@@ -105,25 +109,27 @@ class Fir2IrVisitor(
                 )
             )
         }
+        declarationStorage.leaveScope(irEnumEntry.descriptor)
         return irEnumEntry
     }
-
-    private fun FirClass<*>.getPrimaryConstructorIfAny(): FirConstructor? =
-        declarations.filterIsInstance<FirConstructor>().firstOrNull()?.takeIf { it.isPrimary }
 
     private fun IrClass.setClassContent(klass: FirClass<*>) {
         declarationStorage.enterScope(descriptor)
         conversionScope.withClass(this) {
             val primaryConstructor = klass.getPrimaryConstructorIfAny()
-            val irPrimaryConstructor = primaryConstructor?.accept(this@Fir2IrVisitor, null) as IrConstructor?
+            val irPrimaryConstructor = primaryConstructor?.let { declarationStorage.getCachedIrConstructor(it)!! }
             if (irPrimaryConstructor != null) {
-                declarations += irPrimaryConstructor
+                with(declarationStorage) {
+                    enterScope(irPrimaryConstructor.descriptor)
+                    irPrimaryConstructor.valueParameters.forEach { symbolTable.introduceValueParameter(it) }
+                    irPrimaryConstructor.putParametersInScope(primaryConstructor)
+                    irPrimaryConstructor.setFunctionContent(irPrimaryConstructor.descriptor, primaryConstructor)
+                }
             }
             val processedCallableNames = mutableListOf<Name>()
             klass.declarations.forEach {
                 if (it !is FirConstructor || !it.isPrimary) {
-                    val irDeclaration = it.toIrDeclaration() ?: return@forEach
-                    declarations += irDeclaration
+                    it.toIrDeclaration() ?: return@forEach
                     when (it) {
                         is FirSimpleFunction -> processedCallableNames += it.name
                         is FirProperty -> processedCallableNames += it.name
@@ -143,7 +149,8 @@ class Fir2IrVisitor(
 
     override fun visitRegularClass(regularClass: FirRegularClass, data: Any?): IrElement {
         if (regularClass.visibility == Visibilities.LOCAL) {
-            declarationStorage.createIrClass(regularClass, conversionScope.parentFromStack(), exactlySourceClass = true)
+            val irParent = conversionScope.parentFromStack()
+            converter.processLocalClassAndNestedClasses(regularClass, irParent)
         }
         val irClass = declarationStorage.getCachedIrClass(regularClass)!!
         return conversionScope.withParent(irClass) {
@@ -151,11 +158,49 @@ class Fir2IrVisitor(
         }
     }
 
+    override fun visitAnonymousObject(anonymousObject: FirAnonymousObject, data: Any?): IrElement {
+        val irParent = conversionScope.parentFromStack()
+        // NB: for implicit types it is possible that anonymous object is already cached
+        val irAnonymousObject = declarationStorage.getCachedIrClass(anonymousObject)?.apply { this.parent = irParent }
+            ?: declarationStorage.createIrAnonymousObject(anonymousObject, irParent = irParent)
+        converter.processClassMembers(anonymousObject, irAnonymousObject)
+        conversionScope.withParent(irAnonymousObject) {
+            setClassContent(anonymousObject)
+        }
+        val anonymousClassType = irAnonymousObject.thisReceiver!!.type
+        return anonymousObject.convertWithOffsets { startOffset, endOffset ->
+            IrBlockImpl(
+                startOffset, endOffset, anonymousClassType, IrStatementOrigin.OBJECT_LITERAL,
+                listOf(
+                    irAnonymousObject,
+                    IrConstructorCallImpl.fromSymbolOwner(
+                        startOffset,
+                        endOffset,
+                        anonymousClassType,
+                        irAnonymousObject.constructors.first().symbol,
+                        irAnonymousObject.typeParameters.size,
+                        origin = IrStatementOrigin.OBJECT_LITERAL
+                    )
+                )
+            )
+        }
+    }
+
+    // ==================================================================================
+
     private fun <T : IrFunction> T.setFunctionContent(descriptor: FunctionDescriptor, firFunction: FirFunction<*>?): T {
         conversionScope.withParent(this) {
             if (firFunction != null) {
                 for ((valueParameter, firValueParameter) in valueParameters.zip(firFunction.valueParameters)) {
                     valueParameter.setDefaultValue(firValueParameter)
+                }
+                if (this !is IrConstructor || !this.isPrimary) {
+                    // Scope for primary constructor should be entered before class declaration processing
+                    with(declarationStorage) {
+                        enterScope(descriptor)
+                        valueParameters.forEach { symbolTable.introduceValueParameter(it) }
+                        putParametersInScope(firFunction)
+                    }
                 }
             }
             var body = firFunction?.body?.convertToIrBlockBody()
@@ -193,27 +238,18 @@ class Fir2IrVisitor(
     }
 
     override fun visitConstructor(constructor: FirConstructor, data: Any?): IrElement {
-        val irConstructor = declarationStorage.getIrConstructor(
-            constructor, irParent = conversionScope.lastClass()!!, shouldLeaveScope = false
-        )
+        val irConstructor = declarationStorage.getCachedIrConstructor(constructor)!!
         return conversionScope.withFunction(irConstructor) {
             setFunctionContent(irConstructor.descriptor, constructor)
         }
     }
 
     override fun visitAnonymousInitializer(anonymousInitializer: FirAnonymousInitializer, data: Any?): IrElement {
-        val origin = IrDeclarationOrigin.DEFINED
-        val parent = conversionScope.lastClass()!!
-        return anonymousInitializer.convertWithOffsets { startOffset, endOffset ->
-            symbolTable.declareAnonymousInitializer(
-                startOffset, endOffset, origin, parent.descriptor
-            ).apply {
-                this.parent = parent
-                declarationStorage.enterScope(descriptor)
-                body = anonymousInitializer.body!!.convertToIrBlockBody()
-                declarationStorage.leaveScope(descriptor)
-            }
-        }
+        val irAnonymousInitializer = declarationStorage.getCachedIrAnonymousInitializer(anonymousInitializer)!!
+        declarationStorage.enterScope(irAnonymousInitializer.descriptor)
+        irAnonymousInitializer.body = anonymousInitializer.body!!.convertToIrBlockBody()
+        declarationStorage.leaveScope(irAnonymousInitializer.descriptor)
+        return irAnonymousInitializer
     }
 
     private fun FirDelegatedConstructorCall.toIrDelegatingConstructorCall(): IrCallWithIndexedArgumentsBase? {
@@ -250,9 +286,12 @@ class Fir2IrVisitor(
     }
 
     override fun visitSimpleFunction(simpleFunction: FirSimpleFunction, data: Any?): IrElement {
-        val irFunction = declarationStorage.getIrFunction(
-            simpleFunction, irParent = conversionScope.parent(), shouldLeaveScope = false
-        )
+        val irFunction = if (simpleFunction.visibility == Visibilities.LOCAL) {
+            val irParent = conversionScope.parent()
+            declarationStorage.createIrFunction(simpleFunction, irParent)
+        } else {
+            declarationStorage.getCachedIrFunction(simpleFunction)!!
+        }
         return conversionScope.withFunction(irFunction) {
             setFunctionContent(irFunction.descriptor, simpleFunction)
         }
@@ -260,7 +299,7 @@ class Fir2IrVisitor(
 
     override fun visitAnonymousFunction(anonymousFunction: FirAnonymousFunction, data: Any?): IrElement {
         return anonymousFunction.convertWithOffsets { startOffset, endOffset ->
-            val irFunction = declarationStorage.getIrFunction(anonymousFunction, conversionScope.parent(), shouldLeaveScope = false)
+            val irFunction = declarationStorage.createIrFunction(anonymousFunction, conversionScope.parent())
             conversionScope.withFunction(irFunction) {
                 setFunctionContent(irFunction.descriptor, anonymousFunction)
             }
@@ -284,14 +323,13 @@ class Fir2IrVisitor(
         val isNextVariable = initializer is FirFunctionCall &&
                 initializer.resolvedNamedFunctionSymbol()?.callableId?.isIteratorNext() == true &&
                 variable.source.psi?.parent is KtForExpression
-        val irVariable = declarationStorage.createAndSaveIrVariable(
-            variable, if (isNextVariable) IrDeclarationOrigin.FOR_LOOP_VARIABLE else null
+        val irVariable = declarationStorage.createIrVariable(
+            variable, conversionScope.parentFromStack(), if (isNextVariable) IrDeclarationOrigin.FOR_LOOP_VARIABLE else null
         )
-        return applyParentFromStackTo(irVariable).apply {
-            if (initializer != null) {
-                this.initializer = initializer.toIrExpression()
-            }
+        if (initializer != null) {
+            irVariable.initializer = initializer.toIrExpression()
         }
+        return irVariable
     }
 
     private fun IrProperty.createBackingField(
@@ -358,14 +396,15 @@ class Fir2IrVisitor(
         annotations = property.annotations.mapNotNull {
             it.accept(this@Fir2IrVisitor, null) as? IrConstructorCall
         }
-        declarationStorage.leaveScope(descriptor)
         return this
     }
 
     override fun visitProperty(property: FirProperty, data: Any?): IrElement {
         if (property.isLocal) return visitLocalVariable(property)
-        val irProperty = declarationStorage.getIrProperty(property, irParent = conversionScope.parent(), shouldLeaveScope = false)
-        return conversionScope.withProperty(irProperty) { setPropertyContent(irProperty.descriptor, property) }
+        val irProperty = declarationStorage.getCachedIrProperty(property)!!
+        return conversionScope.withProperty(irProperty) {
+            setPropertyContent(irProperty.descriptor, property)
+        }
     }
 
     private fun IrFieldAccessExpression.setReceiver(declaration: IrDeclaration): IrFieldAccessExpression {
@@ -385,11 +424,6 @@ class Fir2IrVisitor(
         isDefault: Boolean
     ) {
         conversionScope.withFunction(this) {
-            if (propertyAccessor != null) {
-                with(declarationStorage) { this@setPropertyAccessorContent.enterLocalScope(propertyAccessor) }
-            } else {
-                declarationStorage.enterScope(descriptor)
-            }
             applyParentFromStackTo(this)
             setFunctionContent(descriptor, propertyAccessor)
             if (isDefault) {
@@ -503,14 +537,12 @@ class Fir2IrVisitor(
                     val irClass = symbol.owner
                     val fir = firSymbol?.fir as? FirClass<*>
                     val irConstructor = fir?.getPrimaryConstructorIfAny()?.let { firConstructor ->
-                        declarationStorage.getIrConstructor(firConstructor, irParent = irClass)
-                    }?.apply {
-                        this.parent = irClass
+                        declarationStorage.getIrConstructorSymbol(firConstructor.symbol)
                     }
                     if (irConstructor == null) {
                         IrErrorCallExpressionImpl(startOffset, endOffset, type, "No annotation constructor found: ${irClass.name}")
                     } else {
-                        IrConstructorCallImpl.fromSymbolDescriptor(startOffset, endOffset, type, irConstructor.symbol)
+                        IrConstructorCallImpl.fromSymbolDescriptor(startOffset, endOffset, type, irConstructor)
                     }
 
                 }
@@ -608,7 +640,7 @@ class Fir2IrVisitor(
                     it is FirAnonymousObject || it is FirRegularClass && it.classKind == ClassKind.OBJECT
                 }
                 firClass?.convertWithOffsets { startOffset, endOffset ->
-                    val irClass = declarationStorage.getIrClass(firClass)
+                    val irClass = declarationStorage.getCachedIrClass(firClass)!!
                     IrGetObjectValueImpl(startOffset, endOffset, irClass.defaultType, irClass.symbol)
                 }
             }
@@ -676,7 +708,7 @@ class Fir2IrVisitor(
                 it is FirAnonymousObject || it is FirRegularClass && it.classKind == ClassKind.OBJECT
             }
             if (firObject != null) {
-                val irObject = declarationStorage.getIrClass(firObject)
+                val irObject = declarationStorage.getCachedIrClass(firObject)!!
                 if (irObject != conversionScope.lastClass()) {
                     return thisReceiverExpression.convertWithOffsets { startOffset, endOffset ->
                         IrGetObjectValueImpl(startOffset, endOffset, irObject.defaultType, irObject.symbol)
@@ -808,30 +840,6 @@ class Fir2IrVisitor(
                 startOffset, endOffset,
                 constExpression.typeRef.toIrType(),
                 kind, value
-            )
-        }
-    }
-
-    override fun visitAnonymousObject(anonymousObject: FirAnonymousObject, data: Any?): IrElement {
-        val irAnonymousObject = declarationStorage.createIrAnonymousObject(anonymousObject, irParent = conversionScope.parentFromStack())
-        conversionScope.withParent(irAnonymousObject) {
-            setClassContent(anonymousObject)
-        }
-        val anonymousClassType = irAnonymousObject.thisReceiver!!.type
-        return anonymousObject.convertWithOffsets { startOffset, endOffset ->
-            IrBlockImpl(
-                startOffset, endOffset, anonymousClassType, IrStatementOrigin.OBJECT_LITERAL,
-                listOf(
-                    irAnonymousObject,
-                    IrConstructorCallImpl.fromSymbolOwner(
-                        startOffset,
-                        endOffset,
-                        anonymousClassType,
-                        irAnonymousObject.constructors.first().symbol,
-                        irAnonymousObject.typeParameters.size,
-                        origin = IrStatementOrigin.OBJECT_LITERAL
-                    )
-                )
             )
         }
     }
@@ -1067,8 +1075,8 @@ class Fir2IrVisitor(
 
     override fun visitCatch(catch: FirCatch, data: Any?): IrElement {
         return catch.convertWithOffsets { startOffset, endOffset ->
-            val catchParameter = declarationStorage.createAndSaveIrVariable(catch.parameter)
-            IrCatchImpl(startOffset, endOffset, applyParentFromStackTo(catchParameter)).apply {
+            val catchParameter = declarationStorage.createIrVariable(catch.parameter, conversionScope.parentFromStack())
+            IrCatchImpl(startOffset, endOffset, catchParameter).apply {
                 result = catch.block.convertToIrExpressionOrBlock()
             }
         }
