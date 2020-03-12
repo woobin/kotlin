@@ -59,14 +59,32 @@ class Fir2IrConverter(
         }
     }
 
-    fun processClassMembers(
-        klass: FirClass<*>,
-        irClass: IrClass = declarationStorage.getCachedIrClass(klass)!!
+    fun processAnonymousObjectMembers(
+        anonymousObject: FirAnonymousObject,
+        irClass: IrClass = declarationStorage.getCachedIrClass(anonymousObject)!!
     ): IrClass {
-        klass.getPrimaryConstructorIfAny()?.let {
+        anonymousObject.getPrimaryConstructorIfAny()?.let {
             irClass.declarations += declarationStorage.createIrConstructor(it, irClass)
         }
-        for (declaration in klass.declarations) {
+        for (declaration in anonymousObject.declarations) {
+            if (declaration is FirRegularClass) {
+                registerClassAndNestedClasses(declaration, irClass)
+                processClassAndNestedClassHeaders(declaration)
+            }
+            val irDeclaration = processMemberDeclaration(declaration, irClass) ?: continue
+            irClass.declarations += irDeclaration
+        }
+        return irClass
+    }
+
+    private fun processClassMembers(
+        regularClass: FirRegularClass,
+        irClass: IrClass = declarationStorage.getCachedIrClass(regularClass)!!
+    ): IrClass {
+        regularClass.getPrimaryConstructorIfAny()?.let {
+            irClass.declarations += declarationStorage.createIrConstructor(it, irClass)
+        }
+        for (declaration in regularClass.declarations) {
             val irDeclaration = processMemberDeclaration(declaration, irClass) ?: continue
             irClass.declarations += irDeclaration
         }

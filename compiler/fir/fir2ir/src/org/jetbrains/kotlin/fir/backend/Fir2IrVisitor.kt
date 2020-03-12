@@ -99,7 +99,7 @@ class Fir2IrVisitor(
         val correspondingClass = irEnumEntry.correspondingClass ?: return irEnumEntry
         declarationStorage.enterScope(irEnumEntry.descriptor)
         declarationStorage.putEnumEntryClassInScope(enumEntry, correspondingClass)
-        converter.processClassMembers(enumEntry.initializer as FirAnonymousObject, correspondingClass)
+        converter.processAnonymousObjectMembers(enumEntry.initializer as FirAnonymousObject, correspondingClass)
         conversionScope.withParent(correspondingClass) {
             setClassContent(enumEntry.initializer as FirAnonymousObject)
             irEnumEntry.initializerExpression = IrExpressionBodyImpl(
@@ -163,7 +163,7 @@ class Fir2IrVisitor(
         // NB: for implicit types it is possible that anonymous object is already cached
         val irAnonymousObject = declarationStorage.getCachedIrClass(anonymousObject)?.apply { this.parent = irParent }
             ?: declarationStorage.createIrAnonymousObject(anonymousObject, irParent = irParent)
-        converter.processClassMembers(anonymousObject, irAnonymousObject)
+        converter.processAnonymousObjectMembers(anonymousObject, irAnonymousObject)
         conversionScope.withParent(irAnonymousObject) {
             setClassContent(anonymousObject)
         }
@@ -191,9 +191,6 @@ class Fir2IrVisitor(
     private fun <T : IrFunction> T.setFunctionContent(descriptor: FunctionDescriptor, firFunction: FirFunction<*>?): T {
         conversionScope.withParent(this) {
             if (firFunction != null) {
-                for ((valueParameter, firValueParameter) in valueParameters.zip(firFunction.valueParameters)) {
-                    valueParameter.setDefaultValue(firValueParameter)
-                }
                 if (this !is IrConstructor || !this.isPrimary) {
                     // Scope for primary constructor should be entered before class declaration processing
                     with(declarationStorage) {
@@ -201,6 +198,9 @@ class Fir2IrVisitor(
                         valueParameters.forEach { symbolTable.introduceValueParameter(it) }
                         putParametersInScope(firFunction)
                     }
+                }
+                for ((valueParameter, firValueParameter) in valueParameters.zip(firFunction.valueParameters)) {
+                    valueParameter.setDefaultValue(firValueParameter)
                 }
             }
             var body = firFunction?.body?.convertToIrBlockBody()
